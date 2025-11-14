@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>웹 AGV 경로 애니메이션 전략</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(to bottom, #f5f7fa 0%, #c3cfe2 100%);
+            line-height: 1.6;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+        }
+        h3 {
+            color: #7f8c8d;
+            margin-top: 20px;
+        }
+        .section {
+            background: #f8f9fa;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #e74c3c;
+        }
+        .code-block {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            margin: 15px 0;
+        }
+        .highlight {
+            background: #fff3cd;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .strategy-box {
+            background: #e8f5e9;
+            border: 2px solid #4caf50;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .diagram {
+            background: white;
+            border: 2px solid #3498db;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .flow-item {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .arrow {
+            display: inline-block;
+            margin: 0 10px;
+            font-size: 24px;
+            color: #e74c3c;
+        }
+        ul {
+            line-height: 1.8;
+        }
+        li {
+            margin: 10px 0;
+        }
+        .feature {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .feature h4 {
+            color: #3498db;
+            margin-top: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .note {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .warning {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 15px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚗 웹 AGV 경로 애니메이션 전략</h1>
+        <p><strong>작성일:</strong> 2025-11-11</p>
+        <p><strong>프로젝트:</strong> AGV RF-Tag 모니터링 제어 시스템</p>
+
+        <div class="section">
+            <h2>📋 개요</h2>
+            <p>
+                실제 AGV의 주행 경로와 RF-Tag 위치를 웹에서 시각화하고 애니메이션으로 표현하는 시스템입니다.
+                실제 AGV에서 RF-Tag를 감지하면 웹 AGV의 위치를 해당 태그 위치로 리셋하여 
+                누적 오차를 보정하는 <span class="highlight">위치 동기화 전략</span>을 사용합니다.
+            </p>
+        </div>
+
+        <h2>🎯 핵심 전략</h2>
+        
+        <div class="strategy-box">
+            <h3>✅ 위치 동기화 방식</h3>
+            <ol>
+                <li><strong>웹 AGV 자동 애니메이션:</strong> 회색 주행 경로를 따라 자동으로 이동</li>
+                <li><strong>실제 RF-Tag 감지:</strong> 실제 AGV가 태그를 읽으면 tag_id를 서버로 전송</li>
+                <li><strong>웹 위치 리셋:</strong> 서버가 웹으로 tag_id 전송 → 웹 AGV가 해당 태그 위치로 순간이동</li>
+                <li><strong>오차 보정:</strong> 드리프트(누적 오차)가 태그 감지 시마다 자동 리셋됨</li>
+            </ol>
+        </div>
+
+        <div class="diagram">
+            <h3>📊 시스템 흐름도</h3>
+            <div style="margin: 30px 0;">
+                <div class="flow-item">실제 AGV 주행</div>
+                <span class="arrow">→</span>
+                <div class="flow-item">RF-Tag 감지</div>
+                <span class="arrow">→</span>
+                <div class="flow-item">서버로 Tag ID 전송</div>
+                <br><br>
+                <span class="arrow">↓</span>
+                <br><br>
+                <div class="flow-item">웹 AGV 애니메이션</div>
+                <span class="arrow">←</span>
+                <div class="flow-item">Tag 위치로 리셋</div>
+                <span class="arrow">←</span>
+                <div class="flow-item">WebSocket 수신</div>
+            </div>
+        </div>
+
+        <h2>🏗️ 시스템 구조</h2>
+
+        <div class="feature">
+            <h4>1️⃣ visualize_path.html (경로 시각화)</h4>
+            <ul>
+                <li><strong>실제 주행 경로:</strong> 회색 두꺼운 선 (index.html과 동일)</li>
+                <li><strong>태그 연결 경로:</strong> 주황색 점선 (태그 배치 시각화)</li>
+                <li><strong>RF 태그 표시:</strong> 빨간 원 + 번호</li>
+                <li><strong>웹 AGV:</strong> 파란 삼각형 (애니메이션)</li>
+            </ul>
+        </div>
+
+        <div class="feature">
+            <h4>2️⃣ agv_station_server.py (백엔드)</h4>
+            <ul>
+                <li>실제 AGV와 통신 (agv_control_client)</li>
+                <li>RF-Tag 감지 이벤트 수신</li>
+                <li>WebSocket으로 웹에 tag_id 전송</li>
+                <li>tag_num.json 관리</li>
+            </ul>
+        </div>
+
+        <div class="feature">
+            <h4>3️⃣ templates/index.html (실시간 모니터링)</h4>
+            <ul>
+                <li>WebSocket으로 실시간 데이터 수신</li>
+                <li>AGV 상태 표시 (배터리, 속도, 장애물 등)</li>
+                <li>실시간 궤적 표시</li>
+                <li>제어 버튼 (시작, 일시정지, 비상정지)</li>
+            </ul>
+        </div>
+
+        <h2>💻 핵심 코드</h2>
+
+        <h3>📄 visualize_path.html</h3>
+
+        <div class="code-block">
+// RF 태그 위치 (임의 배치)
+const RF_TAGS = [
+    { "id": 1,  "x": 1520, "y": 620, "visible": true, "location": "right" },
+    { "id": 2,  "x": 1520, "y": 450, "visible": true, "location": "right" },
+    { "id": 3,  "x": 1300, "y": 270, "visible": true, "location": "right" },
+    { "id": 4,  "x": 1000, "y": 270, "visible": true, "location": "right" },
+    { "id": 7,  "x": 500,  "y": 270, "visible": true, "location": "right" },
+    { "id": 8,  "x": 200,  "y": 270, "visible": true, "location": "right" },
+    { "id": 9,  "x": 90,   "y": 450, "visible": true, "location": "right" },
+    { "id": 10, "x": 90,   "y": 620, "visible": true, "location": "right" }
+];
+
+// 태그 ID로 AGV 위치 리셋 (실제 RF-Tag 감지 시 호출)
+function resetAGVToTag(tagId) {
+    const tag = RF_TAGS.find(t => t.id === tagId);
+    if (tag) {
+        agvPosition.x = tag.x;
+        agvPosition.y = tag.y;
+        console.log(`🏷️ AGV 위치 리셋: Tag ${tagId} (${tag.x}, ${tag.y})`);
+    }
+}
+
+// 경로 추종 애니메이션
+function updateAGV() {
+    if (!isAnimating) return;
+    
+    const segmentLength = getSegmentLength(currentSegmentIndex);
+    pathProgress += animationSpeed / segmentLength;
+    
+    if (pathProgress >= 1.0) {
+        pathProgress = 0;
+        currentSegmentIndex++;
+        if (currentSegmentIndex >= driving_path.length) {
+            currentSegmentIndex = 0;
+        }
+    }
+    
+    const pos = getPositionOnPath(currentSegmentIndex, pathProgress);
+    if (pos) {
+        agvPosition.x = pos.x;
+        agvPosition.y = pos.y;
+        agvAngle = pos.angle;
+    }
+}
+        </div>
+
+        <h3>🐍 agv_station_server.py (예시)</h3>
+
+        <div class="code-block">
+# RF-Tag 감지 시 (agv_control_client에서 호출)
+@app.route('/tag_detected', methods=['POST'])
+def tag_detected():
+    data = request.json
+    tag_id = data.get('tag_id')
+    
+    print(f"🏷️ RF-Tag 감지: Tag {tag_id}")
+    
+    # WebSocket으로 웹 클라이언트에 전송
+    socketio.emit('reset_agv_to_tag', {'tag_id': tag_id})
+    
+    return jsonify({'status': 'ok'})
+        </div>
+
+        <h3>🌐 WebSocket 연동 (추가 필요)</h3>
+
+        <div class="code-block">
+// visualize_path.html에 추가
+const socket = io('http://localhost:5000');
+
+socket.on('reset_agv_to_tag', (data) => {
+    resetAGVToTag(data.tag_id);
+    console.log(`📡 WebSocket: Tag ${data.tag_id} 리셋 명령 수신`);
+});
+
+socket.on('connect', () => {
+    console.log('✅ WebSocket 연결 성공');
+});
+        </div>
+
+        <h2>📊 데이터 구조</h2>
+
+        <h3>tag_num.json</h3>
+        <div class="code-block">
+{
+    "tags": [
+        {"id": 1, "x": 1520, "y": 620, "visible": true, "location": "right"},
+        {"id": 2, "x": 1520, "y": 450, "visible": true, "location": "right"},
+        {"id": 3, "x": 1300, "y": 270, "visible": true, "location": "right"},
+        {"id": 4, "x": 1000, "y": 270, "visible": true, "location": "right"},
+        {"id": 7, "x": 500,  "y": 270, "visible": true, "location": "right"},
+        {"id": 8, "x": 200,  "y": 270, "visible": true, "location": "right"},
+        {"id": 9, "x": 90,   "y": 450, "visible": true, "location": "right"},
+        {"id": 10, "x": 90,  "y": 620, "visible": true, "location": "right"}
+    ]
+}
+        </div>
+
+        <h3>driving_path (경로 데이터)</h3>
+        <div class="code-block">
+const driving_path = [
+    {"type": "line",  "x1": 1491, "y1": 620, "x2": 1491, "y2": 375},
+    {"type": "curve", "d": "M 1491 375 Q 1487 310 1416 300"},
+    {"type": "line",  "x1": 1416, "y1": 300, "x2": 918,  "y2": 300},
+    {"type": "line",  "x1": 920,  "y1": 300, "x2": 843,  "y2": 248},
+    {"type": "line",  "x1": 844,  "y1": 248, "x2": 680,  "y2": 248},
+    {"type": "line",  "x1": 680,  "y1": 248, "x2": 605,  "y2": 300},
+    {"type": "line",  "x1": 605,  "y1": 300, "x2": 180,  "y2": 300},
+    {"type": "curve", "d": "M 181 300 Q 132 310 116 375"},
+    {"type": "line",  "x1": 116,  "y1": 375, "x2": 116,  "y2": 620}
+];
+        </div>
+
+        <h2>🎮 테스트 기능</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>키</th>
+                    <th>기능</th>
+                    <th>설명</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>1 ~ 0</strong></td>
+                    <td>태그 위치로 리셋</td>
+                    <td>해당 태그 번호 위치로 AGV 즉시 이동 (RF-Tag 감지 시뮬레이션)</td>
+                </tr>
+                <tr>
+                    <td><strong>스페이스바</strong></td>
+                    <td>일시정지/재생</td>
+                    <td>애니메이션 토글</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>✨ 주요 특징</h2>
+
+        <div class="feature">
+            <h4>🎯 정확한 경로 추종</h4>
+            <ul>
+                <li>직선 구간: 선형 보간</li>
+                <li>곡선 구간: Quadratic Bezier 곡선 계산</li>
+                <li>방향 자동 계산: 진행 방향으로 AGV 회전</li>
+            </ul>
+        </div>
+
+        <div class="feature">
+            <h4>🔄 위치 동기화</h4>
+            <ul>
+                <li>실시간 RF-Tag 감지 반영</li>
+                <li>순간 위치 리셋 (드리프트 보정)</li>
+                <li>WebSocket 기반 실시간 통신</li>
+            </ul>
+        </div>
+
+        <div class="feature">
+            <h4>🎨 시각화</h4>
+            <ul>
+                <li>회색 주행 경로 (실제 AGV 경로)</li>
+                <li>주황 점선 (태그 연결 경로)</li>
+                <li>빨간 원 (RF 태그 위치)</li>
+                <li>파란 삼각형 (웹 AGV)</li>
+            </ul>
+        </div>
+
+        <h2>🔧 구현 장점</h2>
+
+        <div class="strategy-box">
+            <h3>✅ 왜 이 방식이 효과적인가?</h3>
+            <ol>
+                <li>
+                    <strong>프로그래밍 단순화:</strong>
+                    <ul>
+                        <li>복잡한 센서 퓨전 불필요</li>
+                        <li>누적 오차 계산 불필요</li>
+                        <li>태그 감지 시마다 자동 보정</li>
+                    </ul>
+                </li>
+                <li>
+                    <strong>유연한 태그 배치:</strong>
+                    <ul>
+                        <li>경로와 독립적으로 태그 배치</li>
+                        <li>학생들이 쉽게 수정 가능</li>
+                        <li>tag_num.json으로 간편 설정</li>
+                    </ul>
+                </li>
+                <li>
+                    <strong>교육적 가치:</strong>
+                    <ul>
+                        <li>센서 기반 위치 보정 개념 학습</li>
+                        <li>웹 시각화로 직관적 이해</li>
+                        <li>실시간 동기화 경험</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+
+        <h2>⚠️ 주의사항</h2>
+
+        <div class="warning">
+            <h3>🚨 구현 시 고려사항</h3>
+            <ul>
+                <li><strong>태그 밀도:</strong> 너무 적으면 오차 누적, 너무 많으면 비용 증가</li>
+                <li><strong>태그 위치:</strong> 경로 근처에 배치해야 리셋 효과적</li>
+                <li><strong>통신 지연:</strong> WebSocket 지연 시 위치 동기화 지연 발생 가능</li>
+                <li><strong>경로 이탈:</strong> 실제 AGV가 경로 이탈 시 태그 감지 실패 가능</li>
+            </ul>
+        </div>
+
+        <div class="note">
+            <h3>💡 최적화 팁</h3>
+            <ul>
+                <li>곡선 구간 전후에 태그 배치 (오차 발생 구간)</li>
+                <li>긴 직선 구간 중간에도 태그 배치 (누적 오차 방지)</li>
+                <li>시작/종료 지점에 반드시 태그 배치</li>
+                <li>애니메이션 속도 조절로 부드러운 움직임 구현</li>
+            </ul>
+        </div>
+
+        <h2>🚀 향후 개선 방향</h2>
+
+        <div class="feature">
+            <h4>1️⃣ 고급 기능</h4>
+            <ul>
+                <li>궤적 기록 및 재생</li>
+                <li>오차 통계 표시 (리셋 전후 비교)</li>
+                <li>다중 AGV 지원</li>
+                <li>3D 시각화</li>
+            </ul>
+        </div>
+
+        <div class="feature">
+            <h4>2️⃣ 편의 기능</h4>
+            <ul>
+                <li>드래그로 태그 위치 변경</li>
+                <li>경로 편집 기능</li>
+                <li>태그 자동 배치 알고리즘</li>
+                <li>시뮬레이션 모드 (가상 AGV)</li>
+            </ul>
+        </div>
+
+        <div class="feature">
+            <h4>3️⃣ 교육 기능</h4>
+            <ul>
+                <li>학생별 tag_num.json 관리</li>
+                <li>성능 비교 (태그 배치 전략별)</li>
+                <li>미션 모드 (특정 경로 완주)</li>
+                <li>점수 시스템</li>
+            </ul>
+        </div>
+
+        <h2>📚 참고 자료</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>파일명</th>
+                    <th>역할</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>visualize_path.html</td>
+                    <td>경로 시각화 및 AGV 애니메이션</td>
+                </tr>
+                <tr>
+                    <td>agv_station_server.py</td>
+                    <td>백엔드 서버 (WebSocket, API)</td>
+                </tr>
+                <tr>
+                    <td>templates/index.html</td>
+                    <td>실시간 모니터링 대시보드</td>
+                </tr>
+                <tr>
+                    <td>tag_num.json</td>
+                    <td>RF 태그 위치 설정 파일</td>
+                </tr>
+                <tr>
+                    <td>agv_control_client.py</td>
+                    <td>실제 AGV 제어 클라이언트</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>🎓 학습 목표</h2>
+
+        <div class="strategy-box">
+            <h3>학생들이 배울 수 있는 개념</h3>
+            <ul>
+                <li>📍 <strong>센서 퓨전:</strong> 여러 센서 데이터 통합</li>
+                <li>🎯 <strong>위치 추정:</strong> 데드 레코닝 vs 절대 위치</li>
+                <li>🔄 <strong>오차 보정:</strong> 누적 오차 및 리셋 전략</li>
+                <li>🌐 <strong>실시간 통신:</strong> WebSocket 활용</li>
+                <li>🎨 <strong>웹 시각화:</strong> Canvas API, 애니메이션</li>
+                <li>🏗️ <strong>시스템 설계:</strong> 프론트엔드-백엔드 연동</li>
+            </ul>
+        </div>
+
+        <hr style="margin: 40px 0;">
+
+        <div style="text-align: center; color: #7f8c8d;">
+            <p><strong>프로젝트:</strong> AGV RF-Tag 모니터링 제어 시스템</p>
+            <p><strong>작성:</strong> GitHub Copilot</p>
+            <p><strong>날짜:</strong> 2025-11-11</p>
+        </div>
+    </div>
+</body>
+</html>

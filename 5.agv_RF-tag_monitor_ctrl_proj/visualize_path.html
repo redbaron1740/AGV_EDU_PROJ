@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AGV 경로 시각화</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+        }
+        #canvas {
+            border: 2px solid #333;
+            background-color: white;
+            display: block;
+            margin: 20px auto;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .info {
+            max-width: 1600px;
+            margin: 20px auto;
+            padding: 15px;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 20px 0;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .legend-color {
+            width: 30px;
+            height: 20px;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center;">AGV 주행 경로 시각화</h1>
+    
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: gray;"></div>
+            <span>실제 주행 경로 (Driving Path)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: orange; border-style: dashed;"></div>
+            <span>태그 연결 경로 (Tag Route)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: red; border-radius: 50%;"></div>
+            <span>RF 태그 위치 (RF Tags)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: blue;"></div>
+            <span>AGV (애니메이션)</span>
+        </div>
+    </div>
+    
+    <div style="text-align: center; margin: 10px 0; color: #666;">
+        💡 키보드: 1~0 = 태그 위치로 리셋 | 스페이스바 = 일시정지/재생
+    </div>
+    
+    <canvas id="canvas" width="1600" height="700"></canvas>
+    
+    <div class="info">
+        <h3>경로 정보</h3>
+        <div id="pathInfo"></div>
+        <h3>태그 정보</h3>
+        <div id="tagInfo"></div>
+    </div>
+
+    <script>
+        // 경로 데이터 (agv_station_server.py의 실제 driving_path와 동일)
+        const driving_path = [
+            {"type": "line",  "x1": 1491, "y1": 620, "x2": 1491, "y2": 375},
+            {"type": "curve", "d": "M 1491 375 Q 1487 310 1416 300"},
+            {"type": "line",  "x1": 1416, "y1": 300, "x2": 918,  "y2": 300},
+            {"type": "line",  "x1": 920,  "y1": 300, "x2": 843,  "y2": 248},
+            {"type": "line",  "x1": 844,  "y1": 248, "x2": 680,  "y2": 248},
+            {"type": "line",  "x1": 680,  "y1": 248, "x2": 605,  "y2": 300},
+            {"type": "line",  "x1": 605,  "y1": 300, "x2": 180,  "y2": 300},
+            {"type": "curve", "d": "M 181 300 Q 132 310 116 375"},
+            {"type": "line",  "x1": 116,  "y1": 375, "x2": 116,  "y2": 620}
+        ];
+
+        // RF 태그 위치 (임의 배치 - 경로 법선 방향 오른쪽으로 오프셋)
+        // 예: 1, 2, 3, 4, 7, 8, 9, 10번만 사용 (8개)
+        const RF_TAGS = [
+            { "id": 1,  "x": 1520, "y": 620, "visible": true, "location": "right" },  // 경로 오른쪽
+            { "id": 2,  "x": 1520, "y": 450, "visible": true, "location": "right" },  // 경로 오른쪽
+            { "id": 3,  "x": 1300, "y": 270, "visible": true, "location": "right" },  // 경로 오른쪽
+            { "id": 4,  "x": 1000, "y": 270, "visible": true, "location": "right" }, // 경로 오른쪽
+            { "id": 7,  "x": 500,  "y": 270, "visible": true, "location": "right" }, // 경로 오른쪽
+            { "id": 8,  "x": 200,  "y": 270, "visible": true, "location": "right" }, // 경로 오른쪽
+            { "id": 9,  "x": 90,   "y": 450, "visible": true, "location": "right" }, // 경로 왼쪽
+            { "id": 10, "x": 90,   "y": 620, "visible": true, "location": "right" }  // 경로 왼쪽
+        ];
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // AGV 애니메이션 상태
+        let agvPosition = { x: 1491, y: 620 };  // 시작 위치 (Tag 1)
+        let agvAngle = 0;  // AGV 방향 (라디안)
+        let pathProgress = 0;  // 경로 진행률 (0~1)
+        let currentSegmentIndex = 0;  // 현재 세그먼트 인덱스
+        let isAnimating = false;  // 애니메이션 실행 여부
+        let animationSpeed = 1.5;  // 속도 (픽셀/프레임)
+
+        // SVG path 파싱 함수
+        function parseSVGPath(d) {
+            const nums = d.match(/[-+]?[0-9]*\.?[0-9]+/g).map(Number);
+            return {
+                start: [nums[0], nums[1]],
+                control: [nums[2], nums[3]],
+                end: [nums[4], nums[5]]
+            };
+        }
+
+        // 경로 그리기
+        function drawPath() {
+            // 1. 실제 주행 경로 (회색, 두꺼운 선 - index.html과 동일)
+            ctx.strokeStyle = 'gray';
+            ctx.lineWidth = 5;
+            ctx.setLineDash([]);
+            
+            driving_path.forEach(segment => {
+                if (segment.type === 'line') {
+                    ctx.beginPath();
+                    ctx.moveTo(segment.x1, segment.y1);
+                    ctx.lineTo(segment.x2, segment.y2);
+                    ctx.stroke();
+                } else if (segment.type === 'curve') {
+                    const parsed = parseSVGPath(segment.d);
+                    ctx.beginPath();
+                    ctx.moveTo(parsed.start[0], parsed.start[1]);
+                    ctx.quadraticCurveTo(
+                        parsed.control[0], parsed.control[1],
+                        parsed.end[0], parsed.end[1]
+                    );
+                    ctx.stroke();
+                }
+            });
+            
+            // 2. 태그 연결선 그리기 (주황색 점선)
+            ctx.strokeStyle = 'orange';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            
+            // 태그들을 순서대로 연결 (배열 순서대로)
+            ctx.beginPath();
+            ctx.moveTo(RF_TAGS[0].x, RF_TAGS[0].y);
+            for (let i = 1; i < RF_TAGS.length; i++) {
+                ctx.lineTo(RF_TAGS[i].x, RF_TAGS[i].y);
+            }
+            ctx.stroke();
+            
+            ctx.setLineDash([]);  // 점선 해제
+        }
+
+        // 태그 그리기 (빨간 원 + 번호)
+        function drawTags() {
+            RF_TAGS.forEach(tag => {
+                // 태그 원 그리기
+                ctx.fillStyle = 'red';
+                ctx.beginPath();
+                ctx.arc(tag.x, tag.y, 8, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                // 태그 번호 표시 (흰색 테두리 + 검은색 텍스트)
+                ctx.font = 'bold 14px Arial';
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 3;
+                ctx.strokeText(tag.id.toString(), tag.x + 15, tag.y + 5);
+                ctx.fillStyle = 'black';
+                ctx.fillText(tag.id.toString(), tag.x + 15, tag.y + 5);
+            });
+        }
+
+        // AGV 그리기 (간단한 삼각형)
+        function drawAGV() {
+            ctx.save();
+            ctx.translate(agvPosition.x, agvPosition.y);
+            ctx.rotate(agvAngle);
+            
+            // AGV 몸체 (삼각형)
+            ctx.fillStyle = 'blue';
+            ctx.beginPath();
+            ctx.moveTo(15, 0);      // 앞
+            ctx.lineTo(-10, -8);    // 왼쪽 뒤
+            ctx.lineTo(-10, 8);     // 오른쪽 뒤
+            ctx.closePath();
+            ctx.fill();
+            
+            // 테두리
+            ctx.strokeStyle = 'darkblue';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+
+        // 경로 상의 위치 계산
+        function getPositionOnPath(segmentIndex, t) {
+            if (segmentIndex >= driving_path.length) {
+                return null;
+            }
+            
+            const segment = driving_path[segmentIndex];
+            
+            if (segment.type === 'line') {
+                const x = segment.x1 + (segment.x2 - segment.x1) * t;
+                const y = segment.y1 + (segment.y2 - segment.y1) * t;
+                const angle = Math.atan2(segment.y2 - segment.y1, segment.x2 - segment.x1);
+                return { x, y, angle };
+            } else if (segment.type === 'curve') {
+                const parsed = parseSVGPath(segment.d);
+                const x0 = parsed.start[0];
+                const y0 = parsed.start[1];
+                const cx = parsed.control[0];
+                const cy = parsed.control[1];
+                const x1 = parsed.end[0];
+                const y1 = parsed.end[1];
+                
+                // Quadratic Bezier 공식
+                const mt = 1 - t;
+                const x = mt * mt * x0 + 2 * mt * t * cx + t * t * x1;
+                const y = mt * mt * y0 + 2 * mt * t * cy + t * t * y1;
+                
+                // 접선 방향 계산
+                const dx = 2 * mt * (cx - x0) + 2 * t * (x1 - cx);
+                const dy = 2 * mt * (cy - y0) + 2 * t * (y1 - cy);
+                const angle = Math.atan2(dy, dx);
+                
+                return { x, y, angle };
+            }
+            
+            return null;
+        }
+
+        // 세그먼트 길이 계산
+        function getSegmentLength(segmentIndex) {
+            const segment = driving_path[segmentIndex];
+            
+            if (segment.type === 'line') {
+                const dx = segment.x2 - segment.x1;
+                const dy = segment.y2 - segment.y1;
+                return Math.sqrt(dx * dx + dy * dy);
+            } else if (segment.type === 'curve') {
+                // 곡선 근사 길이 (샘플링)
+                let length = 0;
+                const steps = 50;
+                let prevPos = getPositionOnPath(segmentIndex, 0);
+                
+                for (let i = 1; i <= steps; i++) {
+                    const t = i / steps;
+                    const pos = getPositionOnPath(segmentIndex, t);
+                    const dx = pos.x - prevPos.x;
+                    const dy = pos.y - prevPos.y;
+                    length += Math.sqrt(dx * dx + dy * dy);
+                    prevPos = pos;
+                }
+                
+                return length;
+            }
+            
+            return 0;
+        }
+
+        // AGV 애니메이션 업데이트
+        function updateAGV() {
+            if (!isAnimating) return;
+            
+            // 현재 세그먼트 길이
+            const segmentLength = getSegmentLength(currentSegmentIndex);
+            
+            // 진행률 증가
+            pathProgress += animationSpeed / segmentLength;
+            
+            // 세그먼트 완료 시 다음 세그먼트로
+            if (pathProgress >= 1.0) {
+                pathProgress = 0;
+                currentSegmentIndex++;
+                
+                // 모든 경로 완료 시 처음으로
+                if (currentSegmentIndex >= driving_path.length) {
+                    currentSegmentIndex = 0;
+                }
+            }
+            
+            // 현재 위치 계산
+            const pos = getPositionOnPath(currentSegmentIndex, pathProgress);
+            if (pos) {
+                agvPosition.x = pos.x;
+                agvPosition.y = pos.y;
+                agvAngle = pos.angle;
+            }
+        }
+
+        // 태그 ID로 AGV 위치 리셋 (실제 RF-Tag 감지 시 호출)
+        function resetAGVToTag(tagId) {
+            const tag = RF_TAGS.find(t => t.id === tagId);
+            if (tag) {
+                agvPosition.x = tag.x;
+                agvPosition.y = tag.y;
+                console.log(`🏷️ AGV 위치 리셋: Tag ${tagId} (${tag.x}, ${tag.y})`);
+            }
+        }
+
+        // 애니메이션 루프
+        function animate() {
+            // 캔버스 클리어
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 그리기
+            drawPath();
+            drawTags();
+            drawAGV();
+            
+            // 업데이트
+            updateAGV();
+            
+            // 다음 프레임
+            requestAnimationFrame(animate);
+        }
+
+        // 정보 표시
+        function displayInfo() {
+            let pathHTML = '<table border="1" cellpadding="5" style="border-collapse: collapse; width: 100%;">';
+            pathHTML += '<tr><th>Segment</th><th>Type</th><th>Description</th></tr>';
+            
+            driving_path.forEach((seg, idx) => {
+                let desc = '';
+                if (seg.type === 'line') {
+                    desc = `(${seg.x1}, ${seg.y1}) → (${seg.x2}, ${seg.y2})`;
+                } else if (seg.type === 'curve') {
+                    desc = `Bezier: ${seg.d}`;
+                }
+                pathHTML += `<tr>
+                    <td>Seg ${idx}</td>
+                    <td>${seg.type}</td>
+                    <td>${desc}</td>
+                </tr>`;
+            });
+            pathHTML += '</table>';
+            document.getElementById('pathInfo').innerHTML = pathHTML;
+            
+            let tagHTML = '<table border="1" cellpadding="5" style="border-collapse: collapse; width: 100%;">';
+            tagHTML += '<tr><th>Tag ID</th><th>X</th><th>Y</th><th>Visible</th><th>Location</th><th>Status</th></tr>';
+            
+            RF_TAGS.forEach(tag => {
+                const statusColor = tag.visible ? 'background-color: #ffcccc;' : 'background-color: #f0f0f0;';
+                const visibleText = tag.visible ? '✓ 활성' : '✗ 비활성';
+                tagHTML += `<tr style="${statusColor}">
+                    <td><strong>Tag ${tag.id}</strong></td>
+                    <td>${tag.x}</td>
+                    <td>${tag.y}</td>
+                    <td>${visibleText}</td>
+                    <td>${tag.location}</td>
+                    <td>${tag.visible ? '사용 중' : '사용 안 함'}</td>
+                </tr>`;
+            });
+            tagHTML += '</table>';
+            document.getElementById('tagInfo').innerHTML = tagHTML;
+        }
+
+        // 실행
+        displayInfo();
+        
+        // 애니메이션 시작
+        isAnimating = true;
+        animate();
+        
+        // 테스트: 키보드로 태그 리셋 (1~10번 키)
+        document.addEventListener('keydown', (e) => {
+            const tagId = parseInt(e.key);
+            if (tagId >= 1 && tagId <= 10) {
+                resetAGVToTag(tagId);
+            } else if (e.key === ' ') {
+                // 스페이스바: 애니메이션 토글
+                isAnimating = !isAnimating;
+            }
+        });
+    </script>
+</body>
+</html>

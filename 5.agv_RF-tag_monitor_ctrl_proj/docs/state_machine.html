@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AGV 상태 머신 다이어그램 - State Machine 기반</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <style>
+    body { font-family: Arial, sans-serif; background: #f7f8fb; color: #222; }
+    .container { max-width: 1200px; margin: 30px auto; padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,0.08); }
+    h1 { margin-top: 0; font-size: 26px; color: #1e40af; }
+    h2 { color: #374151; font-size: 20px; margin-top: 30px; }
+    h3 { color: #4b5563; font-size: 16px; margin-top: 20px; }
+    .meta { color: #666; font-size: 14px; margin-bottom: 16px; }
+    .tips { background: #f1f7ff; border-left: 4px solid #3b82f6; padding: 12px 14px; border-radius: 6px; margin-bottom: 20px; }
+    .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 14px; border-radius: 6px; margin-bottom: 20px; }
+    pre { background: #0b1021; color: #e6edf3; padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 13px; }
+    .state-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin: 20px 0; }
+    .state-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }
+    .state-card h4 { margin: 0 0 8px 0; color: #1f2937; }
+    .state-card .purpose { color: #6b7280; font-size: 13px; margin-bottom: 8px; }
+    .state-card .actions { color: #374151; font-size: 13px; }
+    ul { padding-left: 20px; }
+    li { margin-bottom: 5px; }
+    code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: 'Courier New', monospace; }
+  </style>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({ startOnLoad: true, theme: 'default' });
+  </script>
+</head>
+<body>
+  <div class="container">
+    <h1>🤖 AGV 상태 머신 다이어그램 (State Machine 기반)</h1>
+    <div class="meta">6개 주요 상태: Initial, Ready, Running, ESTOP 계열, Completed, Abnormal</div>
+    
+    <div class="tips">
+      <strong>💡 학습용 State Machine Pattern</strong><br>
+      이 시스템은 교육용으로 설계된 명확한 상태 전이 구조를 가지고 있습니다. 각 상태의 역할과 전이 조건을 쉽게 이해할 수 있습니다.
+    </div>
+
+    <div class="warning">
+      <strong>🛑 안전한 종료</strong><br>
+      SRV_ESTOP과 ABNORMAL 상태에서는 프로그램이 자동 종료되지 않습니다. 사용자가 직접 'q' + Enter 또는 Ctrl+C로 안전하게 종료해야 합니다.
+    </div>
+
+    <div class="mermaid">
+flowchart TD
+    %% 메인 상태들
+    INITIAL[1. INITIAL<br/>초기화]
+    READY[2. READY<br/>준비 대기]
+    RUNNING[3. RUNNING<br/>라인 트레이싱]
+    PAUSED[3-1. PAUSED<br/>일시정지]
+    RESUME[3-2. RESUME<br/>재개]
+    COMPLETED[5. COMPLETED<br/>임무 완료]
+    
+    %% ESTOP 상태들
+    PUSH_ESTOP[4-1. PUSH_ESTOP<br/>물리적 비상정지]
+    OBS_ESTOP[4-2. OBS_ESTOP<br/>장애물 비상정지]
+    SRV_ESTOP[4-3. SRV_ESTOP<br/>서버 비상정지]
+    
+    %% 비정상 상태
+    ABNORMAL[6. ABNORMAL<br/>비정상 상태]
+    
+    %% 사용자 종료
+    USER_EXIT((사용자 종료<br/>q + Enter<br/>Ctrl+C))
+
+    %% 초기화 흐름
+    INITIAL -->|연결 성공| READY
+    INITIAL -->|연결 실패| ABNORMAL
+    
+    %% 정상 운영 흐름
+    READY -->|서버 GO 명령| RUNNING
+    RUNNING -->|Tag 1-9 감지| RUNNING
+    RUNNING -->|Tag 10 감지| COMPLETED
+    COMPLETED -->|서버 GO 명령| READY
+    
+    %% 일시정지 흐름
+    RUNNING -->|서버 PAUSE| PAUSED
+    PAUSED -->|서버 RESUME| RESUME
+    RESUME -->|즉시 전환| RUNNING
+    
+    %% 안전 시스템
+    RUNNING -->|EmgFlag=1| PUSH_ESTOP
+    RUNNING -->|LiDAR<200mm| OBS_ESTOP
+    RUNNING -->|서버 ESTOP| SRV_ESTOP
+    
+    %% ESTOP 복구
+    PUSH_ESTOP -->|스위치 해제| RESUME
+    OBS_ESTOP -->|장애물 제거| RESUME
+    
+    %% 대기 상태들 (수동 종료 필요)
+    SRV_ESTOP -->|대기 상태| SRV_ESTOP
+    ABNORMAL -->|대기 상태| ABNORMAL
+    
+    %% 사용자 종료 (모든 상태에서 가능)
+    SRV_ESTOP -.->|q/Ctrl+C| USER_EXIT
+    ABNORMAL -.->|q/Ctrl+C| USER_EXIT
+    READY -.->|q/Ctrl+C| USER_EXIT
+    RUNNING -.->|q/Ctrl+C| USER_EXIT
+    PAUSED -.->|q/Ctrl+C| USER_EXIT
+    COMPLETED -.->|q/Ctrl+C| USER_EXIT
+
+    %% 스타일링
+    classDef main fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef estop fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    classDef abnormal fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef exit fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef completed fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    
+    class INITIAL,READY,RUNNING,PAUSED,RESUME main
+    class PUSH_ESTOP,OBS_ESTOP,SRV_ESTOP estop
+    class ABNORMAL abnormal
+    class USER_EXIT exit
+    class COMPLETED completed
+    </div>
+
+    <h2>📊 상태별 상세 정보</h2>
+    
+    <div class="state-list">
+      <div class="state-card">
+        <h4>1️⃣ INITIAL (초기화)</h4>
+        <div class="purpose">시스템 초기화 및 연결 테스트</div>
+        <div class="actions">
+          • 서버 연결 테스트<br>
+          • 하드웨어(시리얼) 연결 테스트<br>
+          • 성공 시 → READY<br>
+          • 실패 시 → ABNORMAL
+        </div>
+      </div>
+
+      <div class="state-card">
+        <h4>2️⃣ READY (준비)</h4>
+        <div class="purpose">시작 명령 대기</div>
+        <div class="actions">
+          • tag1 = 0, tag2 = 100mm/s<br>
+          • 모터 정지 상태<br>
+          • 서버 GO 명령 시 → RUNNING
+        </div>
+      </div>
+
+      <div class="state-card">
+        <h4>3️⃣ RUNNING (주행)</h4>
+        <div class="purpose">라인 트레이싱 및 임무 수행</div>
+        <div class="actions">
+          • 라인 트레이싱 지속 수행<br>
+          • tag1=0: 기본속도 100mm/s<br>
+          • tag1≥2: 사용자속도(tag2)<br>
+          • Tag 10 감지 시 → COMPLETED
+        </div>
+      </div>
+
+      <div class="state-card">
+        <h4>3️⃣-1️⃣ PAUSED (일시정지)</h4>
+        <div class="purpose">일시 정지 상태</div>
+        <div class="actions">
+          • 속도 0, 현재 위치 유지<br>
+          • RESUME 명령 시 → RUNNING
+        </div>
+      </div>
+
+      <div class="state-card">
+        <h4>4️⃣-1️⃣ PUSH_ESTOP</h4>
+        <div class="purpose">물리적 비상정지</div>
+        <div class="actions">
+          • AGV 비상정지 스위치 활성화<br>
+          • 완전 정지<br>
+          • 해제 시 → RESUME
+        </div>
+      </div>
+
+      <div class="state-card">
+        <h4>4️⃣-2️⃣ OBS_ESTOP</h4>
+        <div class="purpose">장애물 비상정지</div>
+        <div class="actions">
+          • 라이다 거리 < 200mm<br>
+          • 완전 정지<br>
+          • 장애물 제거 시 → RESUME
+        </div>
+      </div>
+
+      <div class="state-card">
+        <h4>4️⃣-3️⃣ SRV_ESTOP</h4>
+        <div class="purpose">서버 비상정지</div>
+        <div class="actions">
+          • 서버에서 ESTOP 명령<br>
+          • 완전 정지 및 대기<br>
+          • 수동 종료 필요 (q/Ctrl+C)
+        </div>
+      </div>
+
+      <div class="state-card">
+        <h4>5️⃣ COMPLETED (완료)</h4>
+        <div class="purpose">임무 완료 상태</div>
+        <div class="actions">
+          • Tag 10 감지로 전환<br>
+          • 정지 및 대기<br>
+          • 서버 GO 명령 시 → READY (재시작)
+        </div>
+      </div>
+
+      <div class="state-card">
+        <h4>6️⃣ ABNORMAL (비정상)</h4>
+        <div class="purpose">오류 상태</div>
+        <div class="actions">
+          • 초기화 실패시 전환<br>
+          • 완전 정지 및 대기<br>
+          • 수동 종료 필요 (q/Ctrl+C)
+        </div>
+      </div>
+    </div>
+
+    <h2>🔗 명령 매핑</h2>
+    <ul>
+      <li><strong>GO</strong> → <code>POST /start</code> (READY→RUNNING, COMPLETED→READY)</li>
+      <li><strong>PAUSE</strong> → <code>POST /pause</code> (RUNNING→PAUSED)</li>
+      <li><strong>RESUME</strong> → <code>POST /resume</code> (PAUSED→RESUME→RUNNING)</li>
+      <li><strong>E-STOP</strong> → <code>POST /estop</code> (→SRV_ESTOP)</li>
+      <li><strong>E-STOP Release</strong> → <code>POST /estop_release</code> (PUSH_ESTOP/OBS_ESTOP→RESUME)</li>
+    </ul>
+
+    <h2>🏷️ RF-Tag 활용</h2>
+    <ul>
+      <li><strong>Tag1 (임무 제어)</strong>: 0=미감지, 1=시작점, 2-9=임무구역, 10=완료점</li>
+      <li><strong>Tag2 (속도 제어)</strong>: 0=정지, 1-200=속도제한(mm/s)</li>
+    </ul>
+
+    <h2>📊 속도 제어 로직</h2>
+    <pre><code>if agv_status in ("Ready", "Initial") or tag1_state == 0:
+    최대속도 = 100mm/s  # 안전 저속
+else:
+    최대속도 = min(사용자속도, tag2속도, 200mm/s)</code></pre>
+
+    <h2>🛑 프로그램 종료 방법</h2>
+    <ul>
+      <li><strong>'q' + Enter</strong>: 터미널에서 정상 종료</li>
+      <li><strong>Ctrl+C</strong>: 키보드 인터럽트로 강제 종료</li>
+      <li><strong>자동 종료 없음</strong>: SRV_ESTOP, ABNORMAL 상태에서 대기</li>
+    </ul>
+
+    <h2>🎯 학습 포인트</h2>
+    <ul>
+      <li><strong>State Machine Pattern</strong>: 명확한 상태 분리와 전이 조건</li>
+      <li><strong>다중 안전 시스템</strong>: 하드웨어/소프트웨어/서버 ESTOP</li>
+      <li><strong>모듈화 설계</strong>: 기능별 함수 분리</li>
+      <li><strong>실시간 제어</strong>: 100ms 주기 제어 루프</li>
+      <li><strong>안전한 종료</strong>: 사용자 제어 종료 시스템</li>
+    </ul>
+
+    <h2>🛠️ 주요 함수</h2>
+    <ul>
+      <li><code>state_machine()</code>: 메인 상태 머신 로직</li>
+      <li><code>line_following_control()</code>: 라인 트레이싱 알고리즘</li>
+      <li><code>process_user_mission()</code>: 사용자 임무 처리</li>
+      <li><code>check_user_input()</code>: 사용자 종료 입력 감지</li>
+      <li><code>send_motor_command()</code>: 모터 제어</li>
+      <li><code>get_sensor_data()</code>: 센서 데이터 획득</li>
+    </ul>
+
+    <div class="tips">
+      <strong>📝 개발 팁</strong><br>
+      • 각 상태별 동작을 단계적으로 테스트<br>
+      • 터미널 로그로 상태 전이 모니터링<br>
+      • process_user_mission() 함수에서 임무 로직 확장<br>
+      • 안전을 위해 항상 정상 종료 방법 사용
+    </div>
+
+  </div>
+</body>
+</html>

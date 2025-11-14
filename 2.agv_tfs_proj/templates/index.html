@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AGV 실시간 대시보드</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .chart-container { 
+            width: 32%; 
+            display: inline-block; 
+            vertical-align: top; 
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 10px;
+        }
+        .controls { 
+            margin-bottom: 20px; 
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button { 
+            padding: 10px 20px; 
+            font-size: 16px; 
+            cursor: pointer; 
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #logStatus { margin-left: 15px; font-weight: bold; }
+        h1 { color: #333; }
+        h2 { color: #555; font-size: 18px; margin-top: 0; }
+    </style>
+</head>
+<body>
+    <h1>🚗 AGV의 실시간 TFS 모니터링 대시보드</h1>
+    <div class="controls">
+        <button id="logButton">📝 로깅 시작</button>
+        <span id="logStatus">로깅 상태: 비활성</span>
+    </div>
+    <div class="chart-container">
+        <h2>📍 TFS 회전 각도 (Polar -90° ~ +90°)</h2>
+        <canvas id="trajectoryChart"></canvas>
+    </div>
+    <div class="chart-container">
+        <h2>📏 TFS 와이어 거리</h2>
+        <canvas id="distanceChart"></canvas>
+    </div>
+
+    <script>
+        const socket = io();
+        let currentAngle = 0;
+        let currentDistance = 0;
+
+        // 속도계 스타일의 게이지 플러그인
+        const gaugePlugin = {
+            id: 'gaugeNeedle',
+            afterDatasetsDraw: (chart) => {
+                const { ctx, chartArea } = chart;
+                const centerX = (chartArea.left + chartArea.right) / 2;
+                const centerY = chartArea.bottom - 20; // 하단 여백 확보
+                const radius = Math.min((chartArea.right - chartArea.left) / 2.5, (chartArea.bottom - chartArea.top) - 40);
+                
+                // 게이지 배경 (반원)
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, Math.PI, 2 * Math.PI, false);
+                ctx.strokeStyle = '#ddd';
+                ctx.lineWidth = 30;
+                ctx.stroke();
+                
+                // 각도 표시 눈금
+                const angles = [-90, -60, -30, 0, 30, 60, 90];
+                const labels = ['-90°', '-60°', '-30°', '0°', '30°', '60°', '90°'];
+                
+                ctx.fillStyle = '#666';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                angles.forEach((angle, i) => {
+                    // 반원 게이지에서 각도 변환: -90도는 왼쪽(π), 0도는 위(π/2), 90도는 오른쪽(0)
+                    const rad = Math.PI - (angle + 90) * Math.PI / 180;
+                    
+                    // 눈금 선
+                    const x1 = centerX + Math.cos(rad) * (radius - 15);
+                    const y1 = centerY + Math.sin(rad) * (radius - 15);
+                    const x2 = centerX + Math.cos(rad) * (radius + 5);
+                    const y2 = centerY + Math.sin(rad) * (radius + 5);
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.strokeStyle = '#333';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                });
+                
+                // TFS 각도 바늘 (화살표)
+                const tfsAngle = chart.config.options.plugins.gaugeNeedle.angle;
+                // 반원 게이지에서 각도 변환: -90도는 왼쪽, 0도는 위, 90도는 오른쪽
+                const angleRad = Math.PI - (tfsAngle + 90) * Math.PI / 180;
+                
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(angleRad - Math.PI / 2);
+                
+                // 두꺼운 바늘
+                ctx.beginPath();
+                ctx.moveTo(-8, 0);
+                ctx.lineTo(-4, -radius * 0.85);
+                ctx.lineTo(4, -radius * 0.85);
+                ctx.lineTo(8, 0);
+                ctx.closePath();
+                
+                // 그라디언트 적용 
+                const gradient = ctx.createLinearGradient(0, 0, 0, -radius * 0.85);
+                gradient.addColorStop(0, '#FF6384');
+                gradient.addColorStop(1, '#FF1744');
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                
+                ctx.strokeStyle = '#C41230';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // 화살촉
+                ctx.beginPath();
+                // y좌표에서 5를 빼서 위로 5만큼 이동
+                ctx.moveTo(0, -radius * 0.85 - 10); 
+                // y좌표에서 5를 빼서 (+15 -> +10) 위로 5만큼 이동
+                ctx.lineTo(-10, -radius * 0.85 + 5); 
+                // y좌표에서 5를 빼서 (+15 -> +10) 위로 5만큼 이동
+                ctx.lineTo(10, -radius * 0.85 + 5);  
+                ctx.closePath();
+                ctx.fillStyle = '#FF1744';
+                ctx.fill();
+                ctx.strokeStyle = '#C41230';
+                ctx.stroke();
+                
+                ctx.restore();
+                
+                // 중심 원
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, 12, 0, 2 * Math.PI);
+                ctx.fillStyle = '#333';
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // 각도 텍스트 표시 - 게이지 중앙 상단에 크게 표시
+                ctx.fillStyle = '#333';
+                ctx.font = 'bold 32px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                // 배경 박스
+                const angleText = `${tfsAngle.toFixed(1)}°`;
+                const textMetrics = ctx.measureText(angleText);
+                const textWidth = textMetrics.width;
+                const textX = centerX;
+                const textY = centerY - radius * 0.4;
+                
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(textX - textWidth/2 - 15, textY - 25, textWidth + 30, 50, 8);
+                ctx.fill();
+                ctx.stroke();
+                
+                //각도 텍스트
+                ctx.fillStyle = '#FF1744';
+                ctx.fillText(angleText, textX, textY);
+                
+                // 각도 텍스트 라벨들 (중앙 박스 위에 그리기)
+                angles.forEach((angle, i) => {
+                    // -90, 0, 90도만 표시
+                    if (angle === -90 || angle === 0 || angle === 90) {
+                        const rad = Math.PI - (angle + 90) * Math.PI / 180;
+                        const labelRadius = radius + 70;
+                        const labelX = centerX + Math.cos(rad) * labelRadius;
+                        const labelY = centerY + Math.sin(rad) * labelRadius;
+                        
+                        ctx.font = 'bold 14px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        
+                        const metrics = ctx.measureText(labels[i]);
+                        const labelTextWidth = metrics.width;
+                        const labelTextHeight = 14;
+                        
+                        // 배경 그리기
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                        ctx.fillRect(labelX - labelTextWidth/2 - 3, labelY - labelTextHeight/2 - 2, labelTextWidth + 6, labelTextHeight + 4);
+                        
+                        // 텍스트 그리기
+                        ctx.fillStyle = '#333';
+                        ctx.fillText(labels[i], labelX, labelY);
+                    }
+                });
+                
+                ctx.restore(); // 맨 처음 save에 대한 restore
+            }
+        };
+
+        // 빈 차트 생성 (게이지는 플러그인으로만 그림)
+        const trajectoryCtx = document.getElementById('trajectoryChart').getContext('2d');
+        const trajectoryChart = new Chart(trajectoryCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: []
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 1.5,
+                layout: {
+                    padding: {
+                        left: 60,
+                        right: 60,
+                        top: 40,
+                        bottom: 10
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false },
+                    gaugeNeedle: {
+                        angle: 0
+                    }
+                },
+                scales: {
+                    x: { display: false },
+                    y: { display: false }
+                }
+            },
+            plugins: [gaugePlugin]
+        });
+
+        // TFS 와이어 거리 차트
+        const distanceCtx = document.getElementById('distanceChart').getContext('2d');
+        const distanceChart = new Chart(distanceCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'TFS 거리 (mm)',
+                    data: [],
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 1.5,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 5000,
+                        title: { 
+                            display: true, 
+                            text: '거리 (mm)',
+                            font: { size: 14, weight: 'bold' }
+                        }
+                    },
+                    x: {
+                        title: { 
+                            display: true, 
+                            text: '데이터 인덱스',
+                            font: { size: 14, weight: 'bold' }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: true }
+                }
+            }
+        });
+
+        socket.on('connect', () => {
+            console.log('서버에 연결되었습니다.');
+        });
+
+        socket.on('update_data', (data) => {
+            currentAngle = data.angle;
+            currentDistance = data.distance;
+
+            // 각도를 -90 ~ +90 범위로 제한
+            const normalizedAngle = Math.max(-90, Math.min(90, currentAngle));
+            
+            // 게이지 바늘 업데이트 (각도만, 길이는 고정)
+            trajectoryChart.options.plugins.gaugeNeedle.angle = normalizedAngle;
+            trajectoryChart.update('none');
+
+            // 거리 차트 데이터 업데이트 (인덱스 기반)
+            const dataIndex = distanceChart.data.labels.length;
+            
+            distanceChart.data.labels.push(dataIndex);
+            distanceChart.data.datasets[0].data.push(currentDistance);
+
+            if (distanceChart.data.labels.length > 50) {
+                distanceChart.data.labels.shift();
+                distanceChart.data.datasets[0].data.shift();
+                
+                // 인덱스 재조정
+                distanceChart.data.labels = distanceChart.data.labels.map((_, i) => i);
+            }
+            distanceChart.update('none');
+        });
+
+        // 로깅 버튼 이벤트
+        const logButton = document.getElementById('logButton');
+        const logStatus = document.getElementById('logStatus');
+        let isLogging = false;
+
+        logButton.addEventListener('click', () => {
+            isLogging = !isLogging;
+            socket.emit('toggle_logging', { status: isLogging });
+            
+            if (isLogging) {
+                logButton.textContent = '⏹️ 로깅 중지';
+                logButton.style.backgroundColor = '#f44336';
+                logStatus.textContent = '로깅 상태: 활성 🔴';
+                logStatus.style.color = 'red';
+            } else {
+                logButton.textContent = '📝 로깅 시작';
+                logButton.style.backgroundColor = '#4CAF50';
+                logStatus.textContent = '로깅 상태: 비활성';
+                logStatus.style.color = 'black';
+            }
+        });
+
+    </script>
+</body>
+</html>
