@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>AGV Monitoring Dashboard</title>
     <style>
         body {
@@ -12,472 +13,205 @@
             margin: auto;
             padding: 10px;
         }
-        .header-container {
+        .header-panel {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
-            padding: 10px;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            position: relative;
+            justify-content: space-between;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            padding: 8px 32px;
+            margin-bottom: 18px;
         }
-        .header-container .button-group-center {
-            display: flex;
-            gap: 10px;
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-        }
-        .header-container .button-group-right {
-            display: flex;
-        }
-        .header-container h1 {
-            margin: 0;
-            font-size: 24px;
-        }
-        .lan-tip {
-            margin-left: 12px;
-            font-size: 12px;
-            color: #0b7285;
-            background: #e3fafc;
-            border: 1px solid #99e9f2;
-            padding: 4px 8px;
-            border-radius: 6px;
-            display: none; /* JS에서 필요 시 표시 */
-        }
-        .header-container button#emergencyBtn {
-            background-color: #d32f2f;
-            border-radius: 90%;
-            padding: 0;
-            position: relative;
-            background-image: url('/static/stop.png');
-            background-size: 120%;
-            background-repeat: no-repeat;
-            background-position: center;
-            width: 50px;
-            height: 50px;
-        }
-        .header-container button#emergencyBtn:hover {
-            background-color: #b71c1c;
-        }
-        .header-container button {
-            padding: 10px 20px;
-            font-size: 16px;
+        .header-title {
+            font-size: 28px;
             font-weight: bold;
-            color: white;
-            background-color: #4CAF50;
+            color: #111;
+        }
+        .header-center {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+        .go-btn {
+            background: #43a047;
+            color: #fff;
+            font-size: 20px;
+            font-weight: bold;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
+            padding: 8px 32px;
             cursor: pointer;
-            transition: background-color 0.3s;
         }
-        .header-container button:hover {
-            background-color: #45a049;
+        .pause-btn {
+            background: #ffa726;
+            color: #fff;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 32px;
+            cursor: pointer;
         }
-        .header-container button#pauseBtn {
-            background-color: #FF9800;
-        }
-        .header-container button#pauseBtn:hover {
-            background-color: #F57C00;
-        }
-        .header-container button#homeBtn {
-            background-color: #2196F3;
-        }
-        .header-container button#homeBtn:hover {
-            background-color: #1976D2;
-        }
-        .map-container {
-            position: relative;
-            width: 1600px;
-            height: 763px;
-            margin: auto;
-            background-image: url('/static/background.jpg');
-            background-size: 1600px 763px;
-            background-repeat: no-repeat;
-            background-position: center;
-            border: 2px solid #ccc;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .agv-image {
-            position: absolute;
-            width: 80px;
-            height: 140px;
-            left: 1491px;
-            top: 620px;
-            transform: translate(-50%, -50%) rotate(0deg);
-            transition: left 0.1s linear, top 0.1s linear, transform 0.5s ease;
-        }
-        .path-layer, .trajectory-layer {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 1600px;
-            height: 763px;
-            pointer-events: none;
-        }
-        .rf-tag {
-            position: absolute;
-            width: 30px;
-            height: 30px;
-            background-color: #ff6b6b;
+        .stop-btn {
+            background: #fff ;
+            color: #d32f2f ;
+            font-size: 18px;
+            font-weight: bold;
+            border: 3px solid #d32f2f;
             border-radius: 50%;
-            border: 3px solid #fff;
+            width: 56px;
+            height: 56px;
             display: flex;
             align-items: center;
             justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+        .stop-btn span {
+            font-family: Arial, sans-serif;
+            font-size: 16px;
             font-weight: bold;
-            color: white;
-            font-size: 12px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            color: #d32f2f;
         }
-        .rf-tag.start-point {
-            background-color: #28a745;
-            border-color: #1e7e34;
-            animation: pulse-green 1.5s infinite;
+        #canvas { background: url('/static/background.jpg') no-repeat center center; background-size: 1600px 763px; border: 1px solid #888; display: block; margin: 0 auto; } /* [삭제 용이] 캔버스 배경 이미지 크기 조정 */
+        .label { font: bold 14px Arial; fill: #1976d2; }
+        .map-container {
+            position: relative;
+            width: 1600px;
+            height: 763;
+            margin: 0 auto;
         }
-        .rf-tag.end-point {
-            background-color: #dc3545;
-            border-color: #c82333;
-            animation: pulse-red 1.5s infinite;
+        .agv-image {
+            position: absolute;
+            width: 50px;
+            height: 75px;
+            pointer-events: none;
         }
-        @keyframes pulse-green {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
-            50% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
-        }
-        @keyframes pulse-red {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
-            50% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
-        }
-        .rf-tag-passed {
-            animation: blink-passed 1s ease-in-out infinite;
-        }
-        @keyframes blink-passed {
-            0%, 100% { 
-                background-color: #ffc107;
-                border-color: #ff9800;
-                transform: scale(1);
-            }
-            50% { 
-                background-color: #ffeb3b;
-                border-color: #ffc107;
-                transform: scale(1.2);
-            }
-        }
+        /* 상태 패널 스타일 추가 */
         .status-panel {
-            position: absolute;
-            top: 10%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(255,255,255,0.95);
-            border-radius: 12px;
-            padding: 20px 30px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-            min-width: 500px;
-        }
-        /* Tag numbers (2~9) squares: bigger, black, thin outline, number inside */
-        .tag-num {
-            position: absolute;
-            width: 22px;
-            height: 22px;
-            background: #000;
-            border: 1px solid #fff; /* thin outline */
-            color: #fff;            /* number color */
-            font-size: 12px;
-            line-height: 22px;
-            text-align: center;
-            font-weight: 700;
-            border-radius: 3px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.4);
-            user-select: none;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            padding: 18px 32px;
+            margin-bottom: 18px;
         }
         .status-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px 30px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
         }
         .status-item {
-            display: flex;
-            align-items: center;
-            font-size: 16px;
-        }
-        .status-item strong {
-            min-width: 90px;
-            margin-right: 10px;
+            font-size: 18px;
+            color: #333;
         }
     </style>
 </head>
 <body>
     <div class="content">
-                <div class="header-container">
-            <h1>AGV Monitoring Dashboard</h1>
-            <div class="button-group-center">
-                <button type="button" id="goBtn" onclick="handleGo()">GO</button>
-                <button type="button" id="pauseBtn" onclick="handlePauseResume()">Pause</button>
-                
-                <span id="lan-tip" class="lan-tip">LAN 접속: <a id="lan-link" href="#" target="_blank"></a></span>
+        <!-- 상단 패널 -->
+        <div class="header-panel">
+            <div class="header-title">AGV Monitoring Dashboard</div>
+            <div class="header-center">
+                <button class="go-btn" id="goBtn">GO</button>
+                <select class="tag-select" id="waypointSelect" style="display:none;">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10</option>
+                </select>
+                <button class="pause-btn" id="pauseBtn">Pause</button>
             </div>
-            <div class="button-group-right">
-                <button type="button" id="emergencyBtn" onclick="handleEmergency()"></button>
-            </div>
+            <button class="stop-btn" id="stopBtn"><span>STOP</span></button>
         </div>
-
+        <!-- 지도 및 AGV 이미지 캔버스 -->
         <div class="map-container">
-            <!-- 고정 주행 라인 레이어 -->
-            <svg class="path-layer">
-                {% for segment in driving_path %}
-                    {% if segment.type == 'line' %}
-                        <line x1="{{ segment.x1 }}" y1="{{ segment.y1 }}" x2="{{ segment.x2 }}" y2="{{ segment.y2 }}" stroke="gray" stroke-width="5" />
-                    {% elif segment.type == 'curve' %}
-                        <path d="{{ segment.d }}" stroke="gray" stroke-width="5" fill="none" />
-                    {% endif %}
-                {% endfor %}
-            </svg>
-
-            <!-- Tag Numbers (2~9) 표시: 작은 사각형과 라벨 -->
-            <div id="tag-num-container"></div>
-
-            <!-- AGV 이동 경로(trajectory) 레이어 -->
-            <svg id="trajectory-svg" class="trajectory-layer"></svg>
-
-            <!-- AGV 이미지 -->
-            <img id="agv" src="/static/AGV.png" alt="AGV Image" class="agv-image" />
-            
-            <!-- 상태 패널 -->
-            <div class="status-panel" id="status-panel">
-                <div class="status-grid">
-                    <div class="status-item">
-                        <strong>AGV 상태:</strong>
-                        <span id="agv-status">IDLE</span>
-                    </div>
-                    <div class="status-item">
-                        <strong>RF-Tag:</strong>
-                        <span id="current-tag">-</span>
-                    </div>
-                    <div class="status-item">
-                        <strong>배터리:</strong>
-                        <span id="battery-level">100%</span>
-                    </div>
-                    <div class="status-item">
-                        <strong>제한 속도:</strong>
-                        <span id="speed-limit">200 mm/s</span>
-                    </div>
-                    <div class="status-item">
-                        <strong>장애물:</strong>
-                        <span id="lidar-distance">- mm</span>
-                    </div>
-                    <div class="status-item">
-                        <strong>현재 속도:</strong>
-                        <span id="current-speed">0 mm/s</span>
-                    </div>
+            <canvas id="canvas" width="1600" height="763" style="position:absolute;left:0;top:0;"></canvas>
+            <!-- 상태 패널: 중앙 상단에 띄움 (5번 프로젝트와 동일) -->
+            <div class="status-panel" id="status-panel" style="position: absolute; top: 75px; left: 50%; transform: translate(-50%, -50%); background-color: rgba(255,255,255,0.95); border-radius: 12px; padding: 20px 30px; box-shadow: 0 4px 8px rgba(0,0,0,0.3); min-width: 450px;">
+                <div class="status-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px 30px;">
+                    <div class="status-item" style="display: flex; align-items: center; font-size: 16px;"><strong>AGV 상태:&nbsp;&nbsp;</strong> <span id="agv-status">-</span></div>
+                    <div class="status-item" style="display: flex; align-items: center; font-size: 16px;"><strong>제한 속도:&nbsp;&nbsp;</strong> <span id="speed-limit">- mm/s</span></div>
+                    <div class="status-item" style="display: flex; align-items: center; font-size: 16px;"><strong>현재 태그:&nbsp;&nbsp;</strong> <span id="current-tag">-</span></div>
+                    <div class="status-item" style="display: flex; align-items: center; font-size: 16px;"><strong>장 애 물:&nbsp;&nbsp;</strong> <span id="lidar-distance">- mm</span></div>
+                    <div class="status-item" style="display: flex; align-items: center; font-size: 16px;"><strong>목표 태그:&nbsp;&nbsp;</strong> <span id="target-tag">-</span></div>
+                    <div class="status-item" style="display: flex; align-items: center; font-size: 16px;"><strong>현재 속도:&nbsp;&nbsp;</strong> <span id="current-speed">- mm/s</span></div>
                 </div>
             </div>
         </div>
     </div>
-
     <script>
-        // ========================================
-        // AGV 애니메이션 설정
-        // ========================================
-        const CONFIG = {
-            AGV_ANIMATION_SPEED_BASE: 2.0, // 기준 속도 (200mm/s일 때) 픽셀/프레임 (1.5→3.0 2배 빠르게)
-            TAG_ARRIVAL_THRESHOLD: 50,     // 태그 도착 판정 거리 (픽셀)
-            WAIT_AT_TAG: true               // 태그에서 대기 여부
-        };
 
-        // AGV 애니메이션 상태
-        let agvAnimPosition = { x: 1491, y: 620 };  // 애니메이션 위치
-        let agvAnimAngle = 0;                       // 애니메이션 각도 (위쪽 정방향 = 0도)
-        let pathProgress = 0;                       // 경로 진행률 (0~1)
-        let currentSegmentIndex = 0;                // 현재 세그먼트 인덱스
-        let isAnimating = false;                    // 애니메이션 실행 여부 (Ready 상태에서 시작)
-        let waitingForTag = false;                  // 태그 대기 중
-        let nextExpectedTagId = null;               // 다음 예상 태그 ID
-        let lastDetectedTagId = null;               // 마지막 감지된 태그 ID (애니메이션 기준)
-        let lastSensorTagId = null;                 // 마지막 센서 태그 ID (실제 AGV)
-        let agvTrajectory = [];                     // AGV 궤적 저장
-        let currentSpeedLimit = 200;                // 현재 속도 제한값 (mm/s)
-        let tag_nums = {};                          // 태그 위치 정보 (id: {x, y, speed_limit})
+        let agv_rf_tag = 0;
 
-        // 경로 데이터 (서버에서 제공하지만 애니메이션용으로 복사)
-        const driving_path = {{ driving_path | tojson | safe }};
-        
-        // driving_path가 없으면 에러 출력
-        if (!driving_path || driving_path.length === 0) {
-            console.error('❌ driving_path가 로드되지 않았습니다!');
-        } else {
-            console.log('✅ driving_path 로드 완료:', driving_path.length, '개 세그먼트');
+        // AGV 상태 패널을 /agv_data에서 주기적으로 갱신
+        async function updateStatusPanel() {
+            try {
+                const res = await fetch('/agv_data');
+                const data = await res.json();
+                document.getElementById('agv-status').textContent = data.state || '-';
+                document.getElementById('speed-limit').textContent = (data.speed_limit !== undefined ? Math.round(data.speed_limit) : '-') + ' mm/s';
+                let temp = data.rf_tag -1 >= 0 ? data.rf_tag -1 : '-';
+                document.getElementById('current-tag').textContent = temp || '-';
+                document.getElementById('lidar-distance').textContent = (data.lidar_distance !== undefined ? Math.round(data.lidar_distance) : '-') + ' mm';
+                document.getElementById('target-tag').textContent = data.rf_tag || '-';
+                agv_rf_tag = data.rf_tag || 0;
+                document.getElementById('current-speed').textContent = (data.current_speed !== undefined ? Math.round(data.current_speed) : '-') + ' mm/s';
+            } catch (e) {}
         }
+        setInterval(updateStatusPanel, 100);
 
-        // Function to send command without reloading the page
-        function sendCommand(command) {
-            fetch('/command', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: 'command=' + command
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log('Command response:', data);
-            })
-            .catch(error => console.error('Error sending command:', error));
-        }
 
-        // GO 버튼 핸들러: 시작하면서 Pause 버튼을 "Pause"로 리셋
-        function handleGo() {
-            sendCommand('go');
-            const pauseBtn = document.getElementById('pauseBtn');
-            pauseBtn.textContent = 'Pause';
-            
-            // 초기 상태: 센서 태그 0, 서버 AGV는 대기
-            isAnimating = false;
-            waitingForTag = false;
-            console.log('🚀 GO 버튼: 초기화 완료 - 센서 Tag 1 감지까지 대기');
-        }
+        // AGV Warning Message Box
+        async function checkWarning() {
+            try {
+                const res = await fetch('/check_warning');
+                const data = await res.json();
 
-        // Pause/Resume 토글: 버튼 텍스트에 따라 명령 전송 및 텍스트 토글
-        function handlePauseResume() {
-            const pauseBtn = document.getElementById('pauseBtn');
-            if (pauseBtn.textContent === 'Pause') {
-                sendCommand('pause');
-                pauseBtn.textContent = 'Resume';
-            } else {
-                sendCommand('resume');
-                pauseBtn.textContent = 'Pause';
-            }
-        }
+                let estopType = '';
+                let estopIcon = '';
 
-        // 비상정지 버튼: E-stop 명령 전송
-        function handleEmergency() {
-            sendCommand('E-stop');
-            const pauseBtn = document.getElementById('pauseBtn');
-            pauseBtn.textContent = 'Resume';
-        }
-
-        // Tag Numbers(2~9) 초기화: 서버가 경로 법선 기준으로 오프셋된 좌표를 반환함
-        function initializeTagNums() {
-            fetch('/tag_nums')
-                .then(response => response.json())
-                .then(tags => {
-                    tag_nums = tags;  // 전역 변수에 저장
-                    console.log('✅ Tag 위치 정보 로드:', Object.keys(tag_nums).length, '개');
-                    console.log('📍 Tag 위치:', tag_nums);
-                    const container = document.getElementById('tag-num-container');
-                    container.innerHTML = '';
-                    Object.entries(tags).forEach(([id, info]) => {
-                        const square = document.createElement('div');
-                        square.className = 'tag-num';
-                        // 서버에서 이미 오프셋된 좌표를 제공
-                        const x = info.x;
-                        const y = info.y;
-                        square.style.left = (x - 11) + 'px'; // 22px -> center
-                        square.style.top  = (y - 11) + 'px';
-                        square.textContent = id;
-
-                        container.appendChild(square);
-                    });
-                })
-                .catch(err => console.error('Error loading tag nums:', err));
-        }
-
-        // 마지막으로 화면에 렌더한 회전값(연속각, 언랩드)
-        let lastRenderedRotation = null;
-
-        // Function to update AGV position and data on the page
-        function updateAgvData() {
-            fetch('/data')
-                .then(response => response.json())
-                .then(data => {
-                    const agvImage = document.getElementById('agv');
-                    const trajectorySvg = document.getElementById('trajectory-svg');
-
-                    // ===== 0. 상태 패널 업데이트 =====
-                    document.getElementById('agv-status').textContent = data.agv_status || 'IDLE';
-                    document.getElementById('current-tag').textContent = data.current_tag || '-';
-                    document.getElementById('battery-level').textContent = data.battery + '%' || '100%';
-                    const speedLimit = data.rf_tag?.speed_limit || 200;
-                    document.getElementById('speed-limit').textContent = speedLimit + ' mm/s';
-                    document.getElementById('lidar-distance').textContent = (data.lidar_distance !== undefined ? data.lidar_distance + ' mm' : '- mm');
-                    document.getElementById('current-speed').textContent = (data.current_speed || 0) + ' mm/s';
-                    currentSpeedLimit = speedLimit;
-
-                    // ===== 1. 센서 태그 동기화 (점프/대기 해제) =====
-                    if (data.current_tag && data.current_tag !== '-') {
-                        const sensorTagId = parseInt(data.current_tag);
+                console.log(data.warning_type);
+                console.log(data.msg);
+                
+                switch (data.warning_type) 
+                {
+                    case 'Push-estop':
+                        estopType = '비상정지 버튼';
+                        estopIcon = '🔴';
+                        break;
+                    case 'Srv-estop':
+                        estopType = '서버 비상정지';
+                        estopIcon = '🚨';
+                        break;
+                    case 'Obstacle-estop':
+                        estopType = '장애물 감지';
+                        estopIcon = '⚠️';
+                        break;
                         
-                        if (sensorTagId !== lastSensorTagId) {
-                            const currentServerTag = lastDetectedTagId || 0;
-                            console.log(`📡 센서: ${lastSensorTagId || 0} → ${sensorTagId}, 서버: ${currentServerTag}`);
-                            lastSensorTagId = sensorTagId;
-                            
-                            if (sensorTagId > currentServerTag) {
-                                // 센서가 앞서감 → 서버 AGV 점프
-                                const tagPos = tag_nums[sensorTagId.toString()];
-                                if (tagPos) {
-                                    resetAGVToTagPosition(sensorTagId, tagPos.x, tagPos.y);
-                                    waitingForTag = false;
-                                    isAnimating = true;
-                                    console.log(`⚡ 점프: Tag ${sensorTagId} (${tagPos.x}, ${tagPos.y})`);
-                                } else {
-                                    console.warn(`⚠️ Tag ${sensorTagId} 위치 없음`);
-                                }
-                            }
-                            else if (sensorTagId === currentServerTag && waitingForTag) {
-                                // 센서가 서버를 따라잡음 → 대기 해제
-                                waitingForTag = false;
-                                isAnimating = true;
-                                console.log(`✅ 대기 해제: Tag ${sensorTagId}`);
-                            }
-                        }
-                    }
-                    
-                    // ===== 2. 라인 트레이싱 상태 확인 =====
-                    if (data.is_line_following === false) {
-                        isAnimating = false;
-                        console.log('⏸️ 라인 트레이싱 중단');
-                    } else if (data.is_line_following === true && !waitingForTag) {
-                        isAnimating = true;
-                        console.log('▶️ 라인 트레이싱 재개');
-                    }
-                    
-                    // ===== 3. AGV 상태 변경 감지 =====
-                    handleAGVStateChange(data.agv_status);
-                    
-                    // ===== 4. 애니메이션 업데이트 =====
-                    updateAGVAnimation();
-                    
-                    // 애니메이션 위치로 AGV 이미지 업데이트
-                    agvImage.style.left = agvAnimPosition.x + 'px';
-                    agvImage.style.top = agvAnimPosition.y + 'px';
-                    agvImage.style.transform = `translate(-50%, -50%) rotate(${agvAnimAngle}deg)`;
+                    case 'Abnormal':
+                        estopType = '비정상 상태';
+                        estopIcon = '❗';
+                        break;
+                }
 
-                    // 궤적 업데이트 (애니메이션 위치 기반)
-                    trajectorySvg.innerHTML = ''; // 기존 궤적 지우기
-                    if (agvTrajectory.length > 0) {
-                        agvTrajectory.forEach((point, index) => {
-                            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                            circle.setAttribute('cx', point.x);
-                            circle.setAttribute('cy', point.y);
-                            circle.setAttribute('r', '2');
-                            circle.setAttribute('fill', `hsl(${index * 0.5}, 70%, 50%)`);
-                            trajectorySvg.appendChild(circle);
-                        });
-                    }
 
-                    // E-Stop 상태 감지 시 경고 메시지 표시 (확인 버튼 포함)
-                    if (data.agv_status === 'Push-EStop' || data.agv_status === 'SRV-EStop') {
-                if (!document.getElementById('estop-warning')) {
+
+                // 메시지 박스 띄우기
+                if (data && data.warning_type && data.warning_type !== 'Release-Obstacle' &&!document.getElementById('estop-warning')) {
                     const warningBox = document.createElement('div');
                     warningBox.id = 'estop-warning';
                     warningBox.style.position = 'fixed';
                     warningBox.style.top = '50%';
                     warningBox.style.left = '50%';
                     warningBox.style.transform = 'translate(-50%, -50%)';
-                    warningBox.style.background = 'rgba(234, 88, 12, 0.95)';
+                    warningBox.style.background = 'rgba(206, 65, 47, 0.95)';
                     warningBox.style.color = 'white';
                     warningBox.style.padding = '30px 50px';
                     warningBox.style.borderRadius = '12px';
@@ -486,17 +220,11 @@
                     warningBox.style.textAlign = 'center';
                     warningBox.style.zIndex = '10000';
                     warningBox.style.boxShadow = '0 8px 32px rgba(0,0,0,0.5)';
-                    
-                    const estopType = data.agv_status === 'Push-EStop' ? '비상정지 버튼' : '서버 비상정지';
-                    const estopIcon = data.agv_status === 'Push-EStop' ? '🔴' : '🚨';
-                    
                     warningBox.innerHTML = `
                         ${estopIcon} ${estopType} 발생 ${estopIcon}<br>
                         <div style="font-size: 18px; margin-top: 15px; font-weight: normal;">
-                            ${data.agv_status === 'Push-EStop' ? 
-                              'AGV의 물리적 비상정지 버튼이 눌렸습니다.' : 
-                              '서버에서 비상정지 명령이 실행되었습니다.'}<br>
-                            상황을 확인한 후 아래 버튼을 눌러주세요.
+                            ${data.msg}<br>
+                            상황을 확인하시고 AGV를 조작해주세요.
                         </div>
                         <button id="acknowledge-btn" style="
                             margin-top: 20px;
@@ -504,7 +232,7 @@
                             font-size: 18px;
                             font-weight: bold;
                             background: white;
-                            color: #ea580c;
+                            color: #1b1b1bff;
                             border: none;
                             border-radius: 8px;
                             cursor: pointer;
@@ -512,380 +240,225 @@
                         ">확인 및 시스템 종료</button>
                     `;
                     document.body.appendChild(warningBox);
-                    
-                    // 확인 버튼 클릭 이벤트
-                    document.getElementById('acknowledge-btn').addEventListener('click', function() {
-                        fetch('/acknowledge_estop', { method: 'POST' })
-                            .then(response => response.json())
-                            .then(result => {
-                                console.log('E-Stop acknowledged:', result);
-                                // 경고창 제거 (Abnormal 경고창이 대신 표시됨)
-                                warningBox.remove();
-                            })
-                            .catch(error => console.error('Acknowledge failed:', error));
-                    });
+                    document.getElementById('acknowledge-btn').onclick = function() {
+                        document.body.removeChild(warningBox);
+                    };
                 }
-            } else {
-                // E-Stop 상태 아닐 때 경고 메시지 제거
-                const estopWarning = document.getElementById('estop-warning');
-                if (estopWarning) {
-                    estopWarning.remove();
+                // 메시지 박스 해제
+                else if ((!data.warning_type || data.warning_type === 'Release-Obstacle') && document.getElementById('estop-warning')) {
+                    document.body.removeChild(document.getElementById('estop-warning'));
                 }
-            }
-            
-            // OBS-EStop 상태 감지 시 경고 메시지 표시 (자동 복구)
-            if (data.agv_status === 'OBS-EStop') {
-                if (!document.getElementById('obs-estop-warning')) {
-                    const warningBox = document.createElement('div');
-                    warningBox.id = 'obs-estop-warning';
-                    warningBox.style.position = 'fixed';
-                    warningBox.style.top = '50%';
-                    warningBox.style.left = '50%';
-                    warningBox.style.transform = 'translate(-50%, -50%)';
-                    warningBox.style.background = 'rgba(234, 88, 12, 0.95)';
-                    warningBox.style.color = 'white';
-                    warningBox.style.padding = '30px 50px';
-                    warningBox.style.borderRadius = '12px';
-                    warningBox.style.fontSize = '24px';
-                    warningBox.style.fontWeight = 'bold';
-                    warningBox.style.textAlign = 'center';
-                    warningBox.style.zIndex = '10000';
-                    warningBox.style.boxShadow = '0 8px 32px rgba(0,0,0,0.5)';
-                    
-                    warningBox.innerHTML = `
-                        🚧 장애물 감지! 🚧<br>
-                        <div style="font-size: 18px; margin-top: 15px; font-weight: normal;">
-                            장애물과 충돌합니다.<br>
-                            안전을 위해 긴급정지 합니다.<br>
-                            <span style="color: #fde047; margin-top: 10px; display: block;">
-                                장애물을 제거하면 자동으로 재개됩니다.
-                            </span>
-                        </div>
-                    `;
-                    document.body.appendChild(warningBox);
-                }
-            } else {
-                // OBS-EStop 상태 아닐 때 경고 메시지 자동 제거
-                const obsWarning = document.getElementById('obs-estop-warning');
-                if (obsWarning) {
-                    obsWarning.remove();
-                }
-            }
-            
-            // 비정상 상태 감지 시 경고 메시지 표시
-            if (data.agv_status === 'Abnormal') {
-                if (!document.getElementById('abnormal-warning')) {
-                    const warningBox = document.createElement('div');
-                    warningBox.id = 'abnormal-warning';
-                    warningBox.style.position = 'fixed';
-                    warningBox.style.top = '50%';
-                    warningBox.style.left = '50%';
-                    warningBox.style.transform = 'translate(-50%, -50%)';
-                    warningBox.style.background = 'rgba(220, 38, 38, 0.95)';
-                    warningBox.style.color = 'white';
-                    warningBox.style.padding = '30px 50px';
-                    warningBox.style.borderRadius = '12px';
-                    warningBox.style.fontSize = '24px';
-                    warningBox.style.fontWeight = 'bold';
-                    warningBox.style.textAlign = 'center';
-                    warningBox.style.zIndex = '10000';
-                    warningBox.style.boxShadow = '0 8px 32px rgba(0,0,0,0.5)';
-                    warningBox.innerHTML = `
-                        ⚠️ 비정상 상태입니다 ⚠️<br>
-                        <div style="font-size: 18px; margin-top: 15px; font-weight: normal;">
-                            시스템에 치명적 오류가 발생했습니다.<br>
-                            프로그램을 종료하고 재시작해주세요.
-                        </div>
-                    `;
-                    document.body.appendChild(warningBox);
-                }
-            } else {
-                // 비정상 상태 아닐 때 경고 메시지 제거
-                const warningBox = document.getElementById('abnormal-warning');
-                if (warningBox) {
-                    warningBox.remove();
-                }
-            }
+            } catch (e) {}
+        }
+        setInterval(checkWarning, 500);
 
-                })
-                .catch(error => console.error('Error fetching AGV data:', error));
+        async function fetchData() {
+            const pathRes = await fetch('/driving_path');
+            const driving_path = await pathRes.json();
+            const wpRes = await fetch('/waypoints');
+            const waypointsRaw = await wpRes.json();
+            // Only use waypoints with visible:true
+            const waypoints = waypointsRaw.filter(wp => wp.visible === true);
+            return { driving_path, waypoints };
         }
 
-        // ========================================
-        // AGV 애니메이션 함수들
-        // ========================================
+        function drawPath(ctx, path) {
+            ctx.save();
+            ctx.strokeStyle = '#cecb0a6c';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            path.forEach(seg => {
+                if (seg.type === "line") {
+                    ctx.moveTo(seg.x1, seg.y1);
+                    ctx.lineTo(seg.x2, seg.y2);
+                } else if (seg.type === "curve") {
+                    const match = seg.d.match(/M (\d+) (\d+) Q (\d+) (\d+) (\d+) (\d+)/);
+                    if (match) {
+                        const [, x1, y1, cx, cy, x2, y2] = match.map(Number);
+                        ctx.moveTo(x1, y1);
+                        ctx.quadraticCurveTo(cx, cy, x2, y2);
+                    }
+                }
+            });
+            ctx.stroke();
+            ctx.restore();
+        }
 
-        // SVG path 파싱 함수
-        function parseSVGPath(d) {
-            const nums = d.match(/[-+]?[0-9]*\.?[0-9]+/g).map(Number);
-            return {
-                start: [nums[0], nums[1]],
-                control: [nums[2], nums[3]],
-                end: [nums[4], nums[5]]
+        function drawWaypoints(ctx, points) {
+            ctx.save();
+            points.filter(wp => wp.visible === true).forEach(wp => {
+                ctx.beginPath();
+                ctx.arc(wp.x, wp.y, 2.0, 0, 2 * Math.PI); // 60% of 16px
+                ctx.fillStyle = '#ff9800';
+                ctx.fill();
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                // 숫자 제거됨, 사각형은 다음 단계에서 추가
+            });
+            ctx.restore();
+        }
+
+        function drawTagID(ctx, points) {
+            ctx.save();
+            points.filter(wp => wp.visible === true).forEach(wp => {
+                if (typeof wp.offset_x === 'number' && typeof wp.offset_y === 'number') {
+                    const rectW = 24, rectH = 20;
+                    const rectX = wp.x + wp.offset_x - rectW/2;
+                    const rectY = wp.y + wp.offset_y - rectH/2;
+                    // Draw black rectangle with white border
+                    ctx.beginPath();
+                    ctx.rect(rectX, rectY, rectW, rectH);
+                    ctx.fillStyle = 'black';
+                    ctx.fill();
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = 'white';
+                    ctx.stroke();
+                    // Draw id number in rectangle
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 14px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(wp.id, rectX + rectW/2, rectY + rectH/2);
+                }
+            });
+            ctx.restore();
+        }        
+
+        // Draw AGV image at (x, y) with rotation
+        function drawAGV(ctx, x, y, rotation=0, width=50, height=75, img) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(rotation);
+            if (img && img.complete) {
+                ctx.drawImage(img, -width/2, -height/2, width, height);
+            }
+            ctx.restore();
+        }
+
+        window.onload = async function() {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const { driving_path, waypoints } = await fetchData();
+
+            // Populate dropdown with visible waypoints only
+            const select = document.getElementById('waypointSelect');
+            select.innerHTML = '';
+            waypoints.forEach(wp => {
+                const opt = document.createElement('option');
+                opt.value = wp.id;
+                opt.textContent = wp.id;
+                select.appendChild(opt);
+            });
+
+            // Load AGV image
+            const agvImg = new Image();
+            agvImg.src = '/static/AGV.png';
+
+            let allowedMoving = false; // AGV 이동 상태 플래그
+            let moveCount = 0;    // GO 버튼 이후 카운트
+            let smoothHeading = 0; // [삭제 용이] 부드러운 heading 변수(전역)
+
+            function lerp(a, b, t) {
+                // 선형 보간 함수
+                return a + (b - a) * t;
+            }
+
+            function shortestAngleDiff(a, b) {
+                // 두 각도의 최소 차이(라디안)
+                let diff = b - a;
+                while (diff < -Math.PI) diff += 2 * Math.PI;
+                while (diff > Math.PI) diff -= 2 * Math.PI;
+                return diff;
+            }
+
+            function render(agvPos) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawPath(ctx, driving_path);
+                drawWaypoints(ctx, waypoints);
+                drawTagID(ctx, waypoints);
+                
+                //console.log(agv_rf_tag);
+                //console.log(moveCount);
+                //console.log(allowedMoving);
+
+                // [중요 코드 ] heading 부드럽게 보간 (속도 0.07)
+                // [중요 코드 ] RF 태그 0 일 때 AGV가 돌아가는 현상 방지
+                if (allowedMoving && moveCount >= 10 && agv_rf_tag > 1) 
+                {
+                    let targetHeading = agvPos.heading + Math.PI/2;
+                    if (typeof smoothHeading !== 'number') smoothHeading = targetHeading;
+                    let diff = shortestAngleDiff(smoothHeading, targetHeading);
+                    smoothHeading = lerp(smoothHeading, smoothHeading + diff, 0.07); // 더 느리게 회전
+                    moveCount = 10; // 최대치 유지
+                }
+                else 
+                {
+                    if (allowedMoving) moveCount++;
+                    smoothHeading = 0;
+                }
+
+                drawAGV(ctx, agvPos.x, agvPos.y, smoothHeading, 100, 150, agvImg);
+
+            }
+
+            // Initial fetch and render
+            let agvPos = {x: waypoints[0].x, y: waypoints[0].y, heading: 0} ; // Default position
+            render(agvPos);
+
+            // Poll AGV position every 30ms
+            setInterval(async () => {
+                try {
+                    const res = await fetch('/agv_position');
+                    agvPos = await res.json();
+                    render(agvPos);
+                } catch (e) {}
+            }, 30);
+
+            // GO 버튼 logic: move AGV to selected waypoint
+            document.getElementById('goBtn').onclick = async function() {
+                const select = document.getElementById('waypointSelect');
+                const wpId = parseInt(select.value);
+
+                allowedMoving = true; // GO 버튼 클릭 시 이동 상태로 변경
+                // POST to backend to set target waypoint
+                await fetch('/set_cmd_agv', 
+                {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({command: 'GO', wp_id: wpId})
+                });
             };
-        }
+            
+            let bPushedPause = false;                                                       
+            // Pause 버튼 logic
+            document.getElementById('pauseBtn').onclick = async function() 
+            {
+                bPushedPause = !bPushedPause;
 
-        // 경로 상의 위치 계산
-        function getPositionOnPath(segmentIndex, t) {
-            if (segmentIndex >= driving_path.length) {
-                return null;
-            }
-            
-            const segment = driving_path[segmentIndex];
-            
-            if (segment.type === 'line') {
-                const x = segment.x1 + (segment.x2 - segment.x1) * t;
-                const y = segment.y1 + (segment.y2 - segment.y1) * t;
-                const angle = Math.atan2(segment.y2 - segment.y1, segment.x2 - segment.x1);
-                return { x, y, angle: angle * (180 / Math.PI) + 90 }; // 라디안 → 도, AGV.png 보정 (+90도)
-            } else if (segment.type === 'curve') {
-                const parsed = parseSVGPath(segment.d);
-                const x0 = parsed.start[0];
-                const y0 = parsed.start[1];
-                const cx = parsed.control[0];
-                const cy = parsed.control[1];
-                const x1 = parsed.end[0];
-                const y1 = parsed.end[1];
-                
-                // Quadratic Bezier 공식
-                const mt = 1 - t;
-                const x = mt * mt * x0 + 2 * mt * t * cx + t * t * x1;
-                const y = mt * mt * y0 + 2 * mt * t * cy + t * t * y1;
-                
-                // 접선 방향 계산
-                const dx = 2 * mt * (cx - x0) + 2 * t * (x1 - cx);
-                const dy = 2 * mt * (cy - y0) + 2 * t * (y1 - cy);
-                const angle = Math.atan2(dy, dx);
-                
-                return { x, y, angle: angle * (180 / Math.PI) + 90 }; // 라디안 → 도, AGV.png 보정 (+90도)
-            }
-            
-            return null;
-        }
+                this.textContent = (bPushedPause ?  "RESUME" : "PAUSE");
+                const cmd = bPushedPause ? 'PAUSE' : 'RESUME';
 
-        // 세그먼트 길이 계산
-        function getSegmentLength(segmentIndex) {
-            const segment = driving_path[segmentIndex];
-            
-            if (segment.type === 'line') {
-                const dx = segment.x2 - segment.x1;
-                const dy = segment.y2 - segment.y1;
-                return Math.sqrt(dx * dx + dy * dy);
-            } else if (segment.type === 'curve') {
-                // 곡선 근사 길이 (샘플링)
-                let length = 0;
-                const steps = 50;
-                let prevPos = getPositionOnPath(segmentIndex, 0);
-                
-                for (let i = 1; i <= steps; i++) {
-                    const t = i / steps;
-                    const pos = getPositionOnPath(segmentIndex, t);
-                    const dx = pos.x - prevPos.x;
-                    const dy = pos.y - prevPos.y;
-                    length += Math.sqrt(dx * dx + dy * dy);
-                    prevPos = pos;
-                }
-                
-                return length;
-            }
-            
-            return 0;
-        }
+                await fetch('/set_cmd_agv', 
+                { 
+                    method: 'POST' ,
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({command: cmd})
+                });            
 
-        // 거리 계산
-        function calculateDistance(pos1, pos2) {
-            const dx = pos2.x - pos1.x;
-            const dy = pos2.y - pos1.y;
-            return Math.sqrt(dx * dx + dy * dy);
-        }
+            };
 
-        // 다음 태그 찾기
-        function getNextExpectedTag() {
-            // tag_num.json에서 로드된 태그 순서대로
-            // 간단하게 lastDetectedTagId + 1
-            if (lastDetectedTagId === null) {
-                return 1; // 첫 태그
-            }
-            return (lastDetectedTagId % 10) + 1; // 1~10 순환
-        }
-
-        // 다음 태그와의 거리 확인
-        function checkArrivalAtNextTag() {
-            if (!CONFIG.WAIT_AT_TAG) return;
-            
-            const nextTagId = getNextExpectedTag();
-            
-            // tag_num.json에서 태그 위치 가져오기 (fetch로 가져와야 하지만 간단하게)
-            // 여기서는 임시로 스킵하고, 서버에서 태그 감지 시 처리
-        }
-
-        // AGV 애니메이션 업데이트
-        function updateAGVAnimation() {
-            if (!isAnimating || waitingForTag) return;
-            
-            // 현재 세그먼트 길이
-            const segmentLength = getSegmentLength(currentSegmentIndex);
-            
-            // 현재 속도에 비례한 애니메이션 속도 계산 (200mm/s 기준 = 1.5 픽셀/프레임)
-            const speedRatio = currentSpeedLimit / 200.0;  // 예: 100mm/s → 0.5, 50mm/s → 0.25
-            const currentAnimSpeed = CONFIG.AGV_ANIMATION_SPEED_BASE * speedRatio;
-            
-            // 진행률 증가
-            pathProgress += currentAnimSpeed / segmentLength;
-            
-            // 세그먼트 완료 시 다음 세그먼트로
-            if (pathProgress >= 1.0) {
-                pathProgress = 0;
-                currentSegmentIndex++;
-                
-                // 모든 경로 완료 시 처음으로
-                if (currentSegmentIndex >= driving_path.length) {
-                    currentSegmentIndex = 0;
-                    agvTrajectory = []; // 궤적 초기화
-                }
-                
-                // ★ 핵심: 서버 AGV가 다음 태그에 도착했는지 확인
-                const nextServerTag = (lastDetectedTagId || 0) + 1;
-                const currentSensorTag = lastSensorTagId || 0;
-                
-                // 현재 세그먼트에 해당하는 태그가 있는지 확인
-                const segmentInfo = driving_path[currentSegmentIndex];
-                if (segmentInfo && segmentInfo.tag_id === nextServerTag) {
-                    lastDetectedTagId = nextServerTag;
-                    console.log(`🚩 서버 AGV가 Tag ${nextServerTag}에 도착`);
-                    
-                    // 센서 태그가 아직 도착 안 했으면 대기
-                    if (currentSensorTag < nextServerTag) {
-                        waitingForTag = true;
-                        isAnimating = false;
-                        console.log(`⏳ 대기 시작: 서버 Tag ${nextServerTag} 도착, 센서는 Tag ${currentSensorTag} → 대기`);
-                    }
-                }
-            }
-            
-            // 현재 위치 계산
-            const pos = getPositionOnPath(currentSegmentIndex, pathProgress);
-            if (pos) {
-                agvAnimPosition.x = pos.x;
-                agvAnimPosition.y = pos.y;
-                
-                // 각도 최단 경로로 업데이트 (270도 회전 방지)
-                let targetAngle = pos.angle;
-                let angleDiff = targetAngle - agvAnimAngle;
-                
-                // -180 ~ 180 범위로 정규화
-                while (angleDiff > 180) angleDiff -= 360;
-                while (angleDiff < -180) angleDiff += 360;
-                
-                agvAnimAngle += angleDiff;
-                
-                // 궤적 추가 (일정 거리마다)
-                if (agvTrajectory.length === 0 || 
-                    calculateDistance(agvAnimPosition, agvTrajectory[agvTrajectory.length - 1]) > 10) {
-                    agvTrajectory.push({ x: pos.x, y: pos.y });
-                    
-                    // 궤적이 너무 길어지면 오래된 것 제거
-                    if (agvTrajectory.length > 500) {
-                        agvTrajectory.shift();
-                    }
-                }
-            }
-        }
-
-        // 태그 감지 시 AGV 위치 리셋
-        function resetAGVToTagPosition(tagId, tagX, tagY) {
-            console.log(`🔧 resetAGVToTagPosition 호출: Tag ${tagId}, 현재 서버 AGV: ${lastDetectedTagId || 0}`);
-            
-            agvAnimPosition.x = tagX;
-            agvAnimPosition.y = tagY;
-            
-            // 해당 태그 위치에 가장 가까운 세그먼트 찾기
-            let minDist = Infinity;
-            let closestSegmentIndex = currentSegmentIndex;
-            
-            for (let i = 0; i < driving_path.length; i++) {
-                const segment = driving_path[i];
-                const dist = calculateDistance({x: tagX, y: tagY}, {x: segment.x, y: segment.y});
-                if (dist < minDist) {
-                    minDist = dist;
-                    closestSegmentIndex = i;
-                }
-            }
-            
-            // 세그먼트 인덱스 업데이트 (점프)
-            currentSegmentIndex = closestSegmentIndex;
-            pathProgress = 0;
-            console.log(`🎯 세그먼트 ${closestSegmentIndex}로 점프 (Tag ${tagId})`);
-            
-            // ★ 중요: lastDetectedTagId를 마지막에 업데이트
-            lastDetectedTagId = tagId;
-        }
-
-        // AGV 상태 변경 처리
-        function handleAGVStateChange(state) {
-            const stateUpper = (state || '').toUpperCase();
-            
-            if (stateUpper === 'RUNNING' || stateUpper === 'RESUME') {
-                // RUNNING 상태라도 대기 중이면 애니메이션 시작 안 함
-                if (!waitingForTag) {
-                    isAnimating = true;
-                }
-                console.log(`▶️ AGV RUNNING (대기 중: ${waitingForTag})`);
-            } else if (stateUpper === 'PAUSED') {
-                isAnimating = false;
-                console.log('⏸️ AGV 일시정지');
-            } else if (stateUpper.includes('ESTOP') || stateUpper === 'PUSH-ESTOP' || stateUpper === 'OBS-ESTOP' || stateUpper === 'SRV-ESTOP') {
-                isAnimating = false;
-                console.log('🚨 AGV 비상정지');
-            } else if (stateUpper === 'READY' || stateUpper === 'INITIAL') {
-                isAnimating = false;
-                // Tag 10 이후에는 초기화하지 않음
-                if (lastDetectedTagId < 10) {
-                    // 초기 위치로 리셋
-                    agvAnimPosition = { x: 1491, y: 620 };
-                    agvAnimAngle = 0;
-                    currentSegmentIndex = 0;
-                    pathProgress = 0;
-                    agvTrajectory = []; // 궤적 초기화
-                    console.log('⏹️ AGV 대기 중 (Ready)');
-                } else {
-                    console.log('🏁 Tag 10 완료 - 위치 유지');
-                }
-            }
-        }
-
-        // ========================================
-        // 기존 updateAgvData 수정 필요
-        // ========================================
-
-        // 페이지 로드 시 초기화
-        window.onload = function() {
-            // localhost 접속 시 자동 리다이렉트 대신 안내 배너만 표시
-            const lanHost = "{{ lan_ip }}";
-            const host = window.location.hostname;
-            if ((host === '127.0.0.1' || host === 'localhost') && lanHost && lanHost !== '127.0.0.1') {
-                const banner = document.createElement('div');
-                banner.style.position = 'fixed';
-                banner.style.top = '10px';
-                banner.style.right = '10px';
-                banner.style.background = 'rgba(0,0,0,0.7)';
-                banner.style.color = '#fff';
-                banner.style.padding = '8px 12px';
-                banner.style.borderRadius = '6px';
-                banner.style.fontSize = '12px';
-                banner.style.zIndex = '9999';
-                banner.innerHTML = `LAN 접속: <a href="http://${lanHost}:5000" style="color:#4fc3f7; text-decoration:underline;">http://${lanHost}:5000</a>`;
-                document.body.appendChild(banner);
-            }
-            initializeTagNums();
-            
-            // AGV 애니메이션 초기화 (대기 상태)
-            isAnimating = false;
-            console.log('⏹️ AGV 대기 중 (Ready 상태에서 Go 버튼 대기)');
+            // STOP 버튼 logic
+            document.getElementById('stopBtn').onclick = async function() 
+            {
+                await fetch('/set_cmd_agv', { 
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({command: 'ESTOP'})
+                });
+            };    
         };
 
-        setInterval(updateAgvData, 100); // 0.1초(10Hz)로 복원합니다.
     </script>
 </body>
 </html>
-```
