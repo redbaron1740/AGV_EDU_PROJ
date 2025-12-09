@@ -156,6 +156,8 @@ def on_operating_state():
             if agv_client_state == AGV_STATE_OBSTACLE_ESTOP:
                 server_state = AGV_STATE_OBSTACLE_ESTOP
                 
+            if agv_client_state == AGV_STATE_PUSH_BUTTON_ESTOP:
+                server_state = AGV_STATE_PUSH_BUTTON_ESTOP                
                 
             if server_cmd_agv == CMD_AGV.PAUSE:
                 time_elapsed = 0.1
