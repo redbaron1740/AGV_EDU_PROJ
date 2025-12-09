@@ -117,10 +117,7 @@ class AGV_MACHINE_OPERATE:
                     self.agv_data["emg_flag"] = data.EmgFlag
                     self.agv_data["speed"] = data.Speed
                     self.agv_data["tag1"] = data.RF_tag1
-                    if data.RF_tag1 == 0:
-                        self.agv_data["tag2"] = 100  # 기본 속도 제한
-                    else:
-                        self.agv_data["tag2"] = data.RF_tag2 #Speed_limit
+                    self.agv_data["tag2"] = data.RF_tag2 #Speed_limit
                     self.agv_data["battery_soc"] = data.SOC
                     
                     
@@ -171,6 +168,10 @@ class AGV_MACHINE_OPERATE:
                 
                 self.agv_info_2_server["LIDAR"] = self.agv_data["lidar_distance"]
                 self.agv_info_2_server["RF_TAG"] = self.agv_data["tag1"]
+                
+                if self.agv_data['tag1'] == 0:
+                    self.agv_data['tag2'] = 100  # 기본 속도 제한
+                
                 self.agv_info_2_server["SPEED_LIMIT"] = self.agv_data["tag2"]
                 self.agv_info_2_server["CURRENT_SPEED"] = self.agv_data["speed"]
 
