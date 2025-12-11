@@ -247,7 +247,7 @@ class AGV_MACHINE_OPERATE:
                     # 비정상 상태 처리
                     self.agv_info_2_server["STATE"] = AGV_STATE_ABNORMAL
                     
-                self.line_following_control(bAGV_moving)
+                self.line_following_control(bAGV_moving,'backward')
                 
                 time.sleep(0.05)  # 50ms 제어 루프 주기    
             except Exception as e:
@@ -262,12 +262,15 @@ class AGV_MACHINE_OPERATE:
         return False
     
     
-    def line_following_control(self,bMoving=False) :
+    def line_following_control(self,bMoving=False, moving_direction = 'forward') :
         """라인 추종 제어 알고리즘 (예시)"""
         line_pos = self.agv_data["line_pos"]
         base_speed = self.agv_data["tag2"]  # 최대 속도 제한
         left_speed, right_speed = int(0),int(0)
 
+        if moving_direction == 'backward':
+            line_pos *= -1  # 후진 시 라인 방향 보정
+        
         if bMoving == True:
             # 조향 제어        
             if abs(line_pos) > 8: # -12 ~ 12
