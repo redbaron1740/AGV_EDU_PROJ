@@ -23,7 +23,7 @@ class CMD_AGV(Enum):
     NONE = 0
 
 OBSTACLE_THRESHOLD = 150  # 장애물 감지 임계값 (mm)
-
+detect_curved_motion_radius = 5  # 곡선 주행 감지 반경
     
 class AGV_MACHINE_OPERATE:
     # [삭제 용이] AGV 궤적 로그 함수
@@ -89,11 +89,14 @@ class AGV_MACHINE_OPERATE:
         self.rx_thread.start()
         self.on_moving_agv_thread.start()
 
-    def __del__(self):
+    def cleanup(self):
+        """스레드를 안전하게 종료하고 리소스를 정리합니다."""
+        print("프로그램을 종료합니다. 스레드를 정리합니다...")
         self.isRunning = False
         self.tx_thread.join()
         self.rx_thread.join()
         self.on_moving_agv_thread.join()
+        print("모든 스레드가 안전하게 종료되었습니다.")
 
 # === 하드웨어 Serial 제어 ===
     def initialize_hardware(self):
@@ -113,12 +116,13 @@ class AGV_MACHINE_OPERATE:
                 try:
                     data = self.agv_comm.get_latest_data()
                     self.agv_data["line_pos"] = data.LinePos
-                    self.agv_data["lidar_distance"] = data.LidarDistance
+                    self.agv_info_2_server['LIDAR'] = self.agv_data["lidar_distance"] = data.LidarDistance
                     self.agv_data["emg_flag"] = data.EmgFlag
-                    self.agv_data["speed"] = data.Speed
-                    self.agv_data["tag1"] = data.RF_tag1
-                    self.agv_data["tag2"] = data.RF_tag2 #Speed_limit
-                    self.agv_data["battery_soc"] = data.SOC
+                    self.agv_info_2_server['CURRENT_SPEED'] = self.agv_data["speed"] = data.Speed
+                    
+                    self.agv_info_2_server['RF_TAG'] = self.agv_data["tag1"] = data.RF_tag1 #Next RF-Tag ID
+                    self.agv_info_2_server['SPEED_LIMIT'] = self.agv_data["tag2"] = data.RF_tag2 #Speed_limit
+                    self.agv_info_2_server['BATTERY_SOC'] = self.agv_data["battery_soc"] = data.SOC
                     
                     
                 except Exception as e:
@@ -131,16 +135,41 @@ class AGV_MACHINE_OPERATE:
     def send_data_to_server(self):
 
         while self.isRunning:
+            post_data = None
             try:
-                response = requests.post(self.server_post_url, json=self.agv_info_2_server)
-                self.agv_info_2_server["Alv_cnt"] += 1
-                self.str_server_post_error = ""
-                self.isServer_connected = True
+                with self.comm_lock:
+                    # 공유 데이터를 복사하여 lock 점유 시간을 최소화
+                    post_data = self.agv_info_2_server.copy()
+                
+                response = requests.post(self.server_post_url, json=post_data, timeout=0.1)
+
+                with self.comm_lock:
+                    self.agv_info_2_server["Alv_cnt"] += 1
+                    self.str_server_post_error = ""
+                    self.isServer_connected = True
                 
             except Exception as e:
-                self.str_server_post_error = f"Error sending data to server: {e}"
-                self.isServer_connected = False
-            time.sleep(.033)  # 33ms 간격으로 전송        
+                with self.comm_lock:
+                    self.str_server_post_error = f"Error sending data to server: {e}"
+                    self.isServer_connected = False
+            time.sleep(.05)  # 50ms 간격으로 전송        
+
+# 수신 스레드: 100ms마다 서버 메시지 수신 및 처리
+    def rx_data_from_server(self):
+
+        while self.isRunning:
+            try:
+                response = requests.get(self.server_get_url)
+                data = response.json()
+                with self.comm_lock:
+                    self.cmd_data_to_client = data
+                    self.str_server_get_error = ""
+                    
+            except Exception as e:
+                with self.comm_lock:
+                    self.str_server_get_error = f"Error receiving data from server: {e}"
+            time.sleep(.1)  # 100ms 간격으로 수신
+       
 
 # 수신 스레드: 100ms마다 서버 메시지 수신 및 처리
     def rx_data_from_server(self):
@@ -160,56 +189,53 @@ class AGV_MACHINE_OPERATE:
         """메인 제어 루프"""
 
         bAGV_moving = False
+        agv_info = self.agv_info_2_server
 
         while self.isRunning:
             # AGV 상태 업데이트
             try:
                 self.get_sensor_data()
-                
-                self.agv_info_2_server["LIDAR"] = self.agv_data["lidar_distance"]
-                self.agv_info_2_server["RF_TAG"] = self.agv_data["tag1"]
-                
-                if self.agv_data['tag1'] == 0:
-                    self.agv_data['tag2'] = 100  # 기본 속도 제한
-                
-                self.agv_info_2_server["SPEED_LIMIT"] = self.agv_data["tag2"]
-                self.agv_info_2_server["CURRENT_SPEED"] = self.agv_data["speed"]
 
-                #state machine
-                if self.agv_process_state == AGV_STATE_INITIAL:
-                    bAGV_moving = False  # AGV 정지 명령
-                    
-                    # 초기화 상태 처리
-                    self.agv_info_2_server["STATE"] = AGV_STATE_INITIAL
-                    # 하드웨어 초기화 등 필요한 작업 수행
-                    if self.isConnected_to_agv:
-                        self.agv_process_state = AGV_STATE_READY
-                        
-                elif self.agv_process_state == AGV_STATE_READY:
-                    
-                    bAGV_moving = False  # AGV 정지 명령
-                    # 준비 상태 처리
-                    self.agv_info_2_server["STATE"] = AGV_STATE_READY
-                    
-                    if self.cmd_data_to_client["From_server_cmd"] == CMD_AGV.GO.value:
-                        self.agv_process_state = AGV_STATE_RUNNING 
-                        
-                        
-                elif self.agv_process_state == AGV_STATE_RUNNING:
-                    
-                    self.agv_info_2_server["STATE"] = AGV_STATE_RUNNING
-                    bAGV_moving = True  # 기본적으로 AGV 이동 상태
-                    
+                # RF-Tag 속도 제한 처리
+                with self.comm_lock:               
+                    if self.agv_data['tag1'] == 0:
+                        self.agv_data['tag2'] = 50  # 기본 속도 제한
 
-                    if self.agv_data["emg_flag"] == 1:
-                        self.agv_process_state = AGV_STATE_PUSH_BUTTON_ESTOP
+                    current_state = self.agv_process_state
 
-                    if self.cmd_data_to_client["From_server_cmd"] == CMD_AGV.ESTOP.value:
-                        self.agv_process_state = AGV_STATE_SERVER_BUTTON_ESTOP                        
+                    #state machine
+                    if current_state == AGV_STATE_INITIAL:
+                        bAGV_moving = False  # AGV 정지 명령
                         
-                    else:
+                        # 초기화 상태 처리
+                        self.agv_info_2_server["STATE"] = AGV_STATE_INITIAL
+                        # 하드웨어 초기화 등 필요한 작업 수행
+                        if self.isConnected_to_agv:
+                            self.agv_process_state = AGV_STATE_READY
+                            
+                    elif current_state == AGV_STATE_READY:
+                        
+                        bAGV_moving = False  # AGV 정지 명령
+                        # 준비 상태 처리
+                        self.agv_info_2_server["STATE"] = AGV_STATE_READY
+                        
+                        if self.cmd_data_to_client["From_server_cmd"] == CMD_AGV.GO.value:
+                            self.agv_process_state = AGV_STATE_RUNNING                             
+                            
+                    elif current_state == AGV_STATE_RUNNING:
+                        
+                        self.agv_info_2_server["STATE"] = AGV_STATE_RUNNING
+                        bAGV_moving = True  # 기본적으로 AGV 이동 상태
+                        
                         if self.check_obstacle() == True:
                             self.agv_process_state = AGV_STATE_OBSTACLE_ESTOP
+
+                        if self.agv_data["emg_flag"] == 1:
+                            self.agv_process_state = AGV_STATE_PUSH_BUTTON_ESTOP
+
+                        if self.cmd_data_to_client["From_server_cmd"] == CMD_AGV.ESTOP.value:
+                            self.agv_process_state = AGV_STATE_SERVER_BUTTON_ESTOP                        
+                            
                         else:
                             if self.cmd_data_to_client["From_server_cmd"] == CMD_AGV.PAUSE.value:
                                 bAGV_moving = False  # AGV 정지 명령
@@ -217,37 +243,35 @@ class AGV_MACHINE_OPERATE:
                                 or self.cmd_data_to_client["From_server_cmd"] == CMD_AGV.GO.value:
 
                                 bAGV_moving = True  # AGV 이동 명령 
-                            
-                elif self.agv_process_state == AGV_STATE_OBSTACLE_ESTOP:
-                    bAGV_moving = False  # AGV 정지 명령
-                    self.agv_info_2_server["STATE"] = AGV_STATE_OBSTACLE_ESTOP
-                    
-                    # 장애물 비상정지 상태 해제 처리
-                    if self.check_obstacle() == False:
-                        self.agv_process_state = AGV_STATE_RUNNING                    
-                    
-                    
-                elif self.agv_process_state == AGV_STATE_SERVER_BUTTON_ESTOP:
-                    bAGV_moving = False  # AGV 정지 명령
+                                
+                    elif current_state == AGV_STATE_OBSTACLE_ESTOP:
+                        bAGV_moving = False  # AGV 정지 명령
+                        self.agv_info_2_server["STATE"] = AGV_STATE_OBSTACLE_ESTOP
+                        
+                        # 장애물 비상정지 상태 해제 처리
+                        if self.check_obstacle() == False:
+                            self.agv_process_state = AGV_STATE_RUNNING                    
+                        
+                    elif current_state == AGV_STATE_SERVER_BUTTON_ESTOP:
+                        bAGV_moving = False  # AGV 정지 명령
 
-                    # 서버 비상정지 상태 처리
-                    self.agv_process_state = AGV_STATE_ABNORMAL    
-                    self.agv_info_2_server["STATE"] = AGV_STATE_SERVER_BUTTON_ESTOP
+                        # 서버 비상정지 상태 처리
+                        self.agv_process_state = AGV_STATE_ABNORMAL    
+                        self.agv_info_2_server["STATE"] = AGV_STATE_SERVER_BUTTON_ESTOP
+                        
+                    elif current_state == AGV_STATE_PUSH_BUTTON_ESTOP:
+                        bAGV_moving = False  # AGV 정지 명령
 
-                    
-                elif self.agv_process_state == AGV_STATE_PUSH_BUTTON_ESTOP:
-                    bAGV_moving = False  # AGV 정지 명령
+                        # 푸시 버튼 비상정지 상태 처리
+                        self.agv_info_2_server["STATE"] = AGV_STATE_PUSH_BUTTON_ESTOP
+                        
+                    elif current_state == AGV_STATE_ABNORMAL:
+                        bAGV_moving = False  # AGV 정지 명령
 
-                    # 푸시 버튼 비상정지 상태 처리
-                    self.agv_info_2_server["STATE"] = AGV_STATE_PUSH_BUTTON_ESTOP
-                    
-                elif self.agv_process_state == AGV_STATE_ABNORMAL:
-                    bAGV_moving = False  # AGV 정지 명령
-
-                    # 비정상 상태 처리
-                    self.agv_info_2_server["STATE"] = AGV_STATE_ABNORMAL
-                    
-                self.line_following_control(bAGV_moving,'backward')
+                        # 비정상 상태 처리
+                        self.agv_info_2_server["STATE"] = AGV_STATE_ABNORMAL
+                
+                    self.line_following_control(bAGV_moving, 'backward')
                 
                 time.sleep(0.05)  # 50ms 제어 루프 주기    
             except Exception as e:
@@ -265,16 +289,16 @@ class AGV_MACHINE_OPERATE:
     def line_following_control(self,bMoving=False, moving_direction = 'forward') :
         """라인 추종 제어 알고리즘 (예시)"""
         line_pos = self.agv_data["line_pos"]
-        base_speed = self.agv_data["tag2"]  # 최대 속도 제한
+        base_speed = self.agv_data["tag2"]   # 최대 속도 제한
         left_speed, right_speed = int(0),int(0)
 
         if moving_direction == 'backward':
             line_pos *= -1  # 후진 시 라인 방향 보정
-        
+
         if bMoving == True:
             # 조향 제어        
-            if abs(line_pos) > 8: # -12 ~ 12
-                if line_pos < -8:
+            if abs(line_pos) > detect_curved_motion_radius: # -12 ~ 12
+                if line_pos < -detect_curved_motion_radius:
                     # 제자리 좌회전
                     left_speed , right_speed = -base_speed//2, base_speed//2
                 else:
@@ -285,18 +309,20 @@ class AGV_MACHINE_OPERATE:
                 left_speed, right_speed = base_speed, base_speed
 
             else: #미세 조정
-                max_correction = int(base_speed * 0.3)  # 최대 보정값 설정
-                correction = min(int(abs(line_pos) * 8), max_correction)
+                TURN_SPEED_WHEEL_DIFFERENCE = 80
+                correction = int(abs(line_pos) / (detect_curved_motion_radius * 1.0)) # 0~1 정규화 (±5 범위)
+                max_correction = int(TURN_SPEED_WHEEL_DIFFERENCE *correction)  # 최대 보정값 설정
                 
                 if line_pos < 0:    #좌측 보정 좌측 휠 느리게
-                    left_speed,right_speed = base_speed - correction, base_speed + correction                
+                    left_speed,right_speed = base_speed - max_correction, base_speed                 
                 else:               #우측 보정 우측 휠 느리게
-                    left_speed, right_speed = base_speed + correction, base_speed - correction
-        
+                    left_speed, right_speed = base_speed , base_speed - max_correction
+        else:
+            left_speed, right_speed = 0, 0  # 정지 명령 
             
-            if self.agv_comm is not None:
-                self.agv_comm.CLR(left_speed, right_speed)        
-                self.agv_clr_cmd = f"LinePos: {line_pos}, LeftSpeed: {left_speed}, RightSpeed: {right_speed}"
+        if self.agv_comm is not None:
+            self.agv_comm.CLR(left_speed, right_speed)        
+            self.agv_clr_cmd = f"LinePos: {line_pos}, LeftSpeed: {left_speed}, RightSpeed: {right_speed}"
 
         
 
@@ -306,7 +332,7 @@ def menu(stdscr, agv_machine):
     while True:
         stdscr.clear()
         stdscr.addstr(0, 0, "AGV Control Client Simulator")
-        stdscr.addstr(2, 0, f"SOC: {agv_machine.agv_info_2_server['SOC']}%")
+        stdscr.addstr(2, 0, f"Line position: {agv_machine.agv_data['line_pos']}")
         stdscr.addstr(3, 0, f"LIDAR: {agv_machine.agv_info_2_server['LIDAR']} mm")
         stdscr.addstr(4, 0, f"RF_TAG: {agv_machine.agv_info_2_server['RF_TAG']}")
         stdscr.addstr(5, 0, f"SPEED_LIMIT: {agv_machine.agv_info_2_server['SPEED_LIMIT']} mm/s")
@@ -345,7 +371,10 @@ def menu(stdscr, agv_machine):
 if __name__ == "__main__":
     agv_machine = AGV_MACHINE_OPERATE()
     try:
-        while True:
-            curses.wrapper(functools.partial(menu, agv_machine=agv_machine))
+        # curses.wrapper가 menu 함수를 한 번만 호출하도록 구조 변경
+        curses.wrapper(functools.partial(menu, agv_machine=agv_machine))
     except KeyboardInterrupt:
-        del agv_machine
+        print("키보드 입력으로 프로그램을 종료합니다.")
+    finally:
+        # 프로그램 종료 시 항상 cleanup 메서드를 호출하여 리소스를 안전하게 해제
+        agv_machine.cleanup()

@@ -88,11 +88,11 @@ def receive_client_data():
     
     agv_info_to_web["battery_soc"] = agv_client_info["SOC"]
     agv_info_to_web["lidar_distance"] = agv_client_info["LIDAR"]
-    wp_id = agv_info_to_web["rf_tag"] = agv_client_info["RF_TAG"]
-    agv_info_to_web["target_tag"] = agv_client_info["RF_TAG"]+1
+    wp_id = agv_info_to_web["rf_tag"] = agv_client_info["RF_TAG"]+1
+    agv_info_to_web["target_tag"] = agv_client_info["RF_TAG"]
     
     agv_speed = agv_info_to_web["speed_limit"] = agv_client_info["SPEED_LIMIT"]
-    agv_speed /= 100
+    agv_speed /= 220  #실제 AGV 속도에 조정
     agv_info_to_web["current_speed"] = agv_client_info["CURRENT_SPEED"]
      
     agv_client_cnt = agv_client_info["Alv_cnt"]    

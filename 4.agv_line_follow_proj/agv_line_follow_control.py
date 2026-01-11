@@ -163,8 +163,6 @@ def line_follow_control_mode(stdscr, agv):
                 
             else:
                 line_pos = s.LinePos  # -15 ~ +15 범위
-
-                line_pos *= -1 #제어편의를 위해 부호 반전
                 
                 # 라인 센서 기반 제어 로직
                 if abs(line_pos) > 8:
