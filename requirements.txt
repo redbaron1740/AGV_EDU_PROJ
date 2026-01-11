@@ -1,3 +1,7 @@
+#최신 버전 패키지 명시
 flask==2.3.3
 requests==2.31.0
 pyserial==3.5
+numpy==2.4.1
+opencv-python==4.12.0.88
+pyrealsense2==2.56.5.9235
